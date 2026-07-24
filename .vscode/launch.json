@@ -1,0 +1,45 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "probe-rs-debug",
+            "request": "launch",
+            "name": "MSPM0G3507: Launch (SWD)",
+            "cwd": "${workspaceFolder}",
+            "chip": "MSPM0G3507",
+            "probe": "0451:bef3-2:MG350001",
+            "wireProtocol": "Swd",
+            "connectUnderReset": false,
+            "flashingConfig": {
+                "flashingEnabled": true,
+                "haltAfterReset": true
+            },
+            "coreConfigs": [
+                {
+                    "coreIndex": 0,
+                    "programBinary": "${workspaceFolder}/Debug/empty.out"
+                }
+            ]
+        },
+        {
+            "type": "probe-rs-debug",
+            "request": "launch",
+            "name": "MSPM0G3507: Attach Only (no flash)",
+            "cwd": "${workspaceFolder}",
+            "chip": "MSPM0G3507",
+            "probe": "0451:bef3-2:MG350001",
+            "wireProtocol": "Swd",
+            "connectUnderReset": false,
+            "flashingConfig": {
+                "flashingEnabled": false,
+                "haltAfterReset": false
+            },
+            "coreConfigs": [
+                {
+                    "coreIndex": 0,
+                    "programBinary": "${workspaceFolder}/Debug/empty.out"
+                }
+            ]
+        }
+    ]
+}

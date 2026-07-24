@@ -39,12 +39,9 @@ const OBJS: &[&str] = &["empty", "ti_msp_dl_config", "startup_mspm0g350x_ticlang
 
 // ---------- helpers ----------
 
-/// Convert a Path to a plain string.  Strips the Windows `\\?\` verbatim
-/// prefix when present so the TI toolchain doesn't choke on it.
 fn plain(p: &Path) -> String {
     let s = p.to_str().unwrap_or(".");
     if s.starts_with("\\\\?\\") {
-        // "\\\\?\\D:\\..."  →  "D:\\..."
         s[4..].to_owned()
     } else {
         s.to_owned()
@@ -52,7 +49,6 @@ fn plain(p: &Path) -> String {
 }
 
 fn project_dir() -> PathBuf {
-    // CARGO_MANIFEST_DIR = .../empty/build_tool  → project = .../empty
     PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR")
             .unwrap_or_else(|_| ".".into()),
@@ -62,12 +58,39 @@ fn project_dir() -> PathBuf {
     .to_owned()
 }
 
-fn run_or_die(cmd: &mut Command, label: &str) {
+/// Run a command.  On failure, retry once after a short delay — this handles
+/// transient Windows file locks left behind by probe-rs / DSLite / VSCode
+/// debugger sessions that haven't fully released their output-file handles.
+fn run_with_retry(make_cmd: impl Fn() -> Command, label: &str) {
+    let mut cmd = make_cmd();
     let status = cmd
         .status()
         .unwrap_or_else(|e| panic!("{label}: failed to launch — {e}"));
-    if !status.success() {
-        eprintln!("ERROR: {label} (exit code: {:?})", status.code());
+    if status.success() {
+        return;
+    }
+    // first attempt failed — wait for stale locks to drain
+    eprintln!(
+        "WARN: {label} failed (exit {:?}) — file may be locked, retrying in 2 s…",
+        status.code()
+    );
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    let mut retry = make_cmd();
+    let s2 = retry
+        .status()
+        .unwrap_or_else(|e| panic!("{label} retry: failed to launch — {e}"));
+    if !s2.success() {
+        eprintln!("ERROR: {label} retry also failed (exit {:?})", s2.code());
+        if label.contains("link") || label.contains("hex") {
+            eprintln!();
+            eprintln!("HINT: A process is still holding the output file open.");
+            eprintln!(
+                "      Kill probe-rs / DSLite / debugger sessions, then try again."
+            );
+            eprintln!(
+                "      PowerShell:  Get-Process probe*,DSLite* | Stop-Process -Force"
+            );
+        }
         std::process::exit(1);
     }
 }
@@ -84,16 +107,21 @@ fn main() -> ExitCode {
 
     // --- 1. SysConfig ---
     println!("\n--- SysConfig ---");
-    let mut sc = Command::new(SYSCONFIG);
-    sc.args(["-s", PRODUCT_JSON])
-        .arg("--script")
-        .arg(plain(&project.join("empty.syscfg")))
-        .arg("-o")
-        .arg(plain(&debug))
-        .arg("--compiler")
-        .arg("ticlang")
-        .current_dir(plain(&debug));
-    run_or_die(&mut sc, "SysConfig failure");
+    run_with_retry(
+        || {
+            let mut c = Command::new(SYSCONFIG);
+            c.args(["-s", PRODUCT_JSON])
+                .arg("--script")
+                .arg(plain(&project.join("empty.syscfg")))
+                .arg("-o")
+                .arg(plain(&debug))
+                .arg("--compiler")
+                .arg("ticlang")
+                .current_dir(plain(&debug));
+            c
+        },
+        "SysConfig",
+    );
 
     // --- 2. Compile ---
     println!("\n--- Compile ---");
@@ -114,21 +142,28 @@ fn main() -> ExitCode {
         println!("    src  {src_path}");
         println!("    obj  {obj}");
 
+        let project_dir = plain(&project);
+        let debug_dir = plain(&debug);
         let dev_opt = format!("@{}", plain(&debug.join("device.opt")));
-        let mut cc = Command::new(TICLANG);
-        cc.arg("-c")
-            .arg(&dev_opt)
-            .args(ARCH_FLAGS)
-            .args(["-O2", "-gdwarf-3", "-Wall"])
-            .args(["-D__MSPM0G3507__", "-D__USE_SYSCONFIG__"])
-            .args(["-I", &plain(&project)])
-            .args(["-I", &plain(&debug)])
-            .args(["-I", CMSIS_INCLUDE])
-            .args(["-I", SDK_SOURCE])
-            .args(["-o", &obj])
-            .arg(&src_path)
-            .current_dir(plain(&debug));
-        run_or_die(&mut cc, &format!("compile {label} failed"));
+        run_with_retry(
+            || {
+                let mut c = Command::new(TICLANG);
+                c.arg("-c")
+                    .arg(&dev_opt)
+                    .args(ARCH_FLAGS)
+                    .args(["-O2", "-gdwarf-3", "-Wall"])
+                    .args(["-D__MSPM0G3507__", "-D__USE_SYSCONFIG__"])
+                    .args(["-I", &project_dir])
+                    .args(["-I", &debug_dir])
+                    .args(["-I", CMSIS_INCLUDE])
+                    .args(["-I", SDK_SOURCE])
+                    .args(["-o", &obj])
+                    .arg(&src_path)
+                    .current_dir(&debug_dir);
+                c
+            },
+            &format!("compile {label}"),
+        );
     }
 
     // --- 3. Link ---
@@ -137,39 +172,51 @@ fn main() -> ExitCode {
     let map = plain(&debug.join("empty.map"));
     let link_xml = plain(&debug.join("empty_linkInfo.xml"));
     let linker_cmd = plain(&debug.join("device_linker.cmd"));
+    let project_str = plain(&project);
+    let debug_str = plain(&debug);
 
-    let mut ld = Command::new(TICLANG);
-    ld.arg(format!("@{}", plain(&debug.join("device.opt"))))
-        .args(ARCH_FLAGS)
-        .args(["-O2", "-gdwarf-3", "-Wall"])
-        .args(["-Wl,-m", &map])
-        .args(["-Wl,-i", SDK_SOURCE])
-        .args(["-Wl,-i", &plain(&project)])
-        .args(["-Wl,-i", COMPILER_LIB])
-        .arg("-Wl,--diag_wrap=off")
-        .arg("-Wl,--display_error_number")
-        .arg("-Wl,--warn_sections")
-        .args(["-Wl,--xml_link_info", &link_xml])
-        .arg("-Wl,--rom_model")
-        .args(["-o", &elf]);
-    for ob in OBJS {
-        ld.arg(plain(&debug.join(format!("{ob}.o"))));
-    }
-    ld.args(["-Wl,-l", &linker_cmd])
-        .arg("-Wl,-ldevice.cmd.genlibs")
-        .arg("-Wl,-llibc.a")
-        .current_dir(plain(&debug));
-    run_or_die(&mut ld, "link failure");
+    run_with_retry(
+        || {
+            let mut c = Command::new(TICLANG);
+            c.arg(format!("@{}", plain(&debug.join("device.opt"))))
+                .args(ARCH_FLAGS)
+                .args(["-O2", "-gdwarf-3", "-Wall"])
+                .args(["-Wl,-m", &map])
+                .args(["-Wl,-i", SDK_SOURCE])
+                .args(["-Wl,-i", &project_str])
+                .args(["-Wl,-i", COMPILER_LIB])
+                .arg("-Wl,--diag_wrap=off")
+                .arg("-Wl,--display_error_number")
+                .arg("-Wl,--warn_sections")
+                .args(["-Wl,--xml_link_info", &link_xml])
+                .arg("-Wl,--rom_model")
+                .args(["-o", &elf]);
+            for ob in OBJS {
+                c.arg(plain(&debug.join(format!("{ob}.o"))));
+            }
+            c.args(["-Wl,-l", &linker_cmd])
+                .arg("-Wl,-ldevice.cmd.genlibs")
+                .arg("-Wl,-llibc.a")
+                .current_dir(&debug_str);
+            c
+        },
+        "link",
+    );
 
     // --- 4. Hex ---
     println!("\n--- Hex ---");
     let hex = plain(&debug.join("empty.hex"));
-    let mut hx = Command::new(TIARMHEX);
-    hx.args(["--memwidth=8", "--romwidth=8", "--diag_wrap=off", "--intel"])
-        .args(["-o", &hex])
-        .arg(&elf)
-        .current_dir(plain(&debug));
-    run_or_die(&mut hx, "hex generation failure");
+    run_with_retry(
+        || {
+            let mut c = Command::new(TIARMHEX);
+            c.args(["--memwidth=8", "--romwidth=8", "--diag_wrap=off", "--intel"])
+                .args(["-o", &hex])
+                .arg(&elf)
+                .current_dir(plain(&debug));
+            c
+        },
+        "hex",
+    );
 
     println!("\n=== BUILD SUCCESS ===");
     println!("ELF  : {elf}");

@@ -1,7 +1,7 @@
 ******************************************************************************
             TI ARM Clang Linker PC v5.1.1                      
 ******************************************************************************
->> Linked Fri Jul 24 15:42:56 2026
+>> Linked Fri Jul 24 16:14:58 2026
 
 OUTPUT FILE NAME:   <D:\04-NUEDC_prepare\empty\Debug\empty.out>
 ENTRY POINT SYMBOL: "_c_int00_noargs"  address: 000034d9

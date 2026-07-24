@@ -40,19 +40,56 @@
                 "panel": "dedicated"
             },
             "dependsOn": ["MSPM0: Build (Rust)"],
-            "detail": "Flash firmware to MSPM0G3507 via XDS-110 debugger"
+            "detail": "Flash firmware to MSPM0G3507 via XDS-110 (TI DSLite)"
         },
         {
-            "label": "MSPM0: Full Cycle",
-            "dependsOrder": "sequence",
-            "dependsOn": ["MSPM0: Build (Rust)", "MSPM0: Flash (DSLite)"],
+            "label": "MSPM0: Flash (probe-rs)",
+            "type": "shell",
+            "command": "probe-rs download --probe \"0451:bef3-2:MG350001\" --chip MSPM0G3507 --protocol swd \"${workspaceFolder}/Debug/empty.out\"",
             "problemMatcher": [],
             "group": "none",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated"
             },
-            "detail": "Clean → Build → Flash"
+            "dependsOn": ["MSPM0: Build (Rust)"],
+            "detail": "Flash firmware to MSPM0G3507 via probe-rs (SWD)"
+        },
+        {
+            "label": "MSPM0: Reset (probe-rs)",
+            "type": "shell",
+            "command": "probe-rs reset --probe \"0451:bef3-2:MG350001\" --chip MSPM0G3507 --protocol swd",
+            "problemMatcher": [],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "detail": "Reset MSPM0G3507 via probe-rs"
+        },
+        {
+            "label": "MSPM0: Chip Info (probe-rs)",
+            "type": "shell",
+            "command": "probe-rs info --probe \"0451:bef3-2:MG350001\" --chip MSPM0G3507 --protocol swd",
+            "problemMatcher": [],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "detail": "Show chip info (DP/AP/memory map)"
+        },
+        {
+            "label": "MSPM0: Full Cycle",
+            "dependsOrder": "sequence",
+            "dependsOn": ["MSPM0: Build (Rust)", "MSPM0: Flash (probe-rs)"],
+            "problemMatcher": [],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "detail": "Build → Flash (probe-rs)"
         }
     ]
 }
