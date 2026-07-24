@@ -1,9 +1,9 @@
 ******************************************************************************
             TI ARM Clang Linker PC v5.1.1                      
 ******************************************************************************
->> Linked Thu Jul 23 18:05:04 2026
+>> Linked Fri Jul 24 15:42:56 2026
 
-OUTPUT FILE NAME:   <empty.out>
+OUTPUT FILE NAME:   <D:\04-NUEDC_prepare\empty\Debug\empty.out>
 ENTRY POINT SYMBOL: "_c_int00_noargs"  address: 000034d9
 
 
@@ -124,21 +124,21 @@ MODULE SUMMARY
 
        Module                         code    ro data   rw data
        ------                         ----    -------   -------
-    .\
+    D:\04-NUEDC_prepare\empty\Debug\
        empty.o                        12248   686       2      
        ti_msp_dl_config.o             500     14        0      
        startup_mspm0g350x_ticlang.o   6       192       0      
     +--+------------------------------+-------+---------+---------+
        Total:                         12754   892       2      
                                                                
-    E:/softWare/mspm0/mspm0_sdk_2_10_00_04/source/ti/driverlib/lib/ticlang/m0p/mspm0g1x0x_g3x0x/driverlib.a
+    C:/ti/mspm0_sdk_2_10_00_04/source/ti/driverlib/lib/ticlang/m0p/mspm0g1x0x_g3x0x/driverlib.a
        dl_uart.o                      138     0         0      
        dl_i2c.o                       38      0         0      
        dl_common.o                    10      0         0      
     +--+------------------------------+-------+---------+---------+
        Total:                         186     0         0      
                                                                
-    E:\softWare\css\ccs\tools\compiler\ti-cgt-armllvm_5.1.1.LTS\lib\armv6m-ti-none-eabi/c/libc.a
+    C:\ti\ccs2100\ccs\tools\compiler\ti-cgt-armllvm_5.1.1.LTS\lib\armv6m-ti-none-eabi/c/libc.a
        memcpy16.S.obj                 154     0         0      
        copy_decompress_lzss.c.obj     124     0         0      
        autoinit.c.obj                 60      0         0      
@@ -149,12 +149,12 @@ MODULE SUMMARY
     +--+------------------------------+-------+---------+---------+
        Total:                         406     0         0      
                                                                
-    E:\softWare\css\ccs\tools\compiler\ti-cgt-armllvm_5.1.1.LTS\lib\armv6m-ti-none-eabi/c/libsysbm.a
+    C:\ti\ccs2100\ccs\tools\compiler\ti-cgt-armllvm_5.1.1.LTS\lib\armv6m-ti-none-eabi/c/libsysbm.a
        hostexit.c.obj                 4       0         0      
     +--+------------------------------+-------+---------+---------+
        Total:                         4       0         0      
                                                                
-    E:\softWare\css\ccs\tools\compiler\ti-cgt-armllvm_5.1.1.LTS\lib\armv6m-ti-none-eabi/libclang_rt.builtins.a
+    C:\ti\ccs2100\ccs\tools\compiler\ti-cgt-armllvm_5.1.1.LTS\lib\armv6m-ti-none-eabi/libclang_rt.builtins.a
        aeabi_idivmod.S.obj            86      0         0      
        aeabi_uidivmod.S.obj           64      0         0      
        aeabi_memcpy.S.obj             8       0         0      

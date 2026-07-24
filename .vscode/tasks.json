@@ -1,0 +1,58 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "MSPM0: Build (Rust)",
+            "type": "shell",
+            "command": "cargo run --manifest-path=${workspaceFolder}/build_tool/Cargo.toml",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": false
+            },
+            "detail": "Build MSPM0 firmware via Rust script (SysConfig → compile → link → hex)"
+        },
+        {
+            "label": "MSPM0: Clean",
+            "type": "shell",
+            "command": "cargo run --manifest-path=${workspaceFolder}/build_tool/Cargo.toml -- clean",
+            "problemMatcher": [],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "detail": "Clean build artifacts"
+        },
+        {
+            "label": "MSPM0: Flash (DSLite)",
+            "type": "shell",
+            "command": "\"C:/ti/ccs2100/ccs/ccs_base/DebugServer/bin/DSLite.exe\" flash -c \"${workspaceFolder}/targetConfigs/MSPM0G3507.ccxml\" -f \"${workspaceFolder}/Debug/empty.hex\"",
+            "problemMatcher": [],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "dependsOn": ["MSPM0: Build (Rust)"],
+            "detail": "Flash firmware to MSPM0G3507 via XDS-110 debugger"
+        },
+        {
+            "label": "MSPM0: Full Cycle",
+            "dependsOrder": "sequence",
+            "dependsOn": ["MSPM0: Build (Rust)", "MSPM0: Flash (DSLite)"],
+            "problemMatcher": [],
+            "group": "none",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "detail": "Clean → Build → Flash"
+        }
+    ]
+}
