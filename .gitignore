@@ -1,0 +1,21 @@
+# ===== Rust build tool =====
+build_tool/target/
+
+# ===== TI CCS build outputs =====
+Debug/
+*.o
+*.out
+*.hex
+*.map
+*.d_raw
+*_linkInfo.xml
+
+# ===== Generated files =====
+README.html
+
+# ===== IDE / Editor =====
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
