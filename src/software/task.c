@@ -45,9 +45,12 @@ void vLoggerTask(void *pvParameters)
 
     for (;;) {
         char buf[64];
+        unsigned long ticks = xTaskGetTickCount();
+        unsigned long secs  = ticks / 1000;
+        unsigned long ms    = ticks % 1000;
         int n = snprintf(buf, sizeof(buf),
-                         "[%5lu] B:%lu G:%lu\r\n",
-                         (unsigned long) xTaskGetTickCount(),
+                         "[%lu.%03lus] B:%lu G:%lu\r\n",
+                         secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green());
         if (n > 0 && (size_t) n < sizeof(buf)) {
