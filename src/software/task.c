@@ -6,7 +6,7 @@
  *  vGreenTask — blink green LED (PB3) @ 500ms, 250ms phase offset
  */
 
-#include "include/task.h"
+#include "include/app_tasks.h"
 #include "include/build_in_led.h"
 
 void vBlueTask(void *pvParameters)
