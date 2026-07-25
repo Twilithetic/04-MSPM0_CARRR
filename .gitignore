@@ -9,6 +9,7 @@ Debug/
 *.map
 *.d_raw
 *_linkInfo.xml
+*.history
 
 # ===== Generated files =====
 README.html

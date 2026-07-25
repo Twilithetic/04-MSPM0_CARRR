@@ -45,32 +45,31 @@
         {
             "label": "MSPM0: Flash (probe-rs)",
             "type": "shell",
-            "command": "probe-rs download --probe \"0451:bef3-2:NOserial\" --chip MSPM0G3507 --protocol swd \"${workspaceFolder}/Debug/empty.out\"",
+            "command": "probe-rs download --probe \"0451:bef3-2:NOserial\" --chip MSPM0G3507 --protocol swd \"${workspaceFolder}/Debug/empty.out\" && probe-rs reset --probe \"0451:bef3-2:NOserial\" --chip MSPM0G3507 --protocol swd",
             "problemMatcher": [],
             "group": "none",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated"
             },
-            // "dependsOn": ["MSPM0: Build (Rust)"],
-            "detail": "Flash firmware to MSPM0G3507 via probe-rs (SWD)"
+            "detail": "Flash"
         },
         {
             "label": "MSPM0: Reset (probe-rs)",
             "type": "shell",
-            "command": "probe-rs reset --probe \"0451:bef3-2:MG350001\" --chip MSPM0G3507 --protocol swd",
+            "command": "probe-rs reset --probe \"0451:bef3-2:NOserial\" --chip MSPM0G3507 --protocol swd",
             "problemMatcher": [],
             "group": "none",
             "presentation": {
-                "reveal": "always",
-                "panel": "dedicated"
+                "reveal": "silent",
+                "panel": "shared"
             },
-            "detail": "Reset MSPM0G3507 via probe-rs"
+            "detail": "Reset MSPM0G3507 via probe-rs (auto-run after flash)"
         },
         {
             "label": "MSPM0: Chip Info (probe-rs)",
             "type": "shell",
-            "command": "probe-rs info --probe \"0451:bef3-2:MG350001\" --chip MSPM0G3507 --protocol swd",
+            "command": "probe-rs info --probe \"0451:bef3-2:NOserial\" --chip MSPM0G3507 --protocol swd",
             "problemMatcher": [],
             "group": "none",
             "presentation": {
