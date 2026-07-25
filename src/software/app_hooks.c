@@ -5,6 +5,8 @@
  */
 
 #include "include/app_hooks.h"
+#include <FreeRTOS.h>
+#include <task.h>
 
 /* ====================================================================
  *  FreeRTOS hooks

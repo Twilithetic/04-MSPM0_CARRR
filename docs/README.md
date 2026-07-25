@@ -1,5 +1,5 @@
 # MSPM0G3507 文档索引
-
+setx CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS "1"
 > Texas Instruments MSPM0G3507 ARM Cortex-M0+ MCU 官方文档汇总
 >
 > 下载日期：2026-07-04

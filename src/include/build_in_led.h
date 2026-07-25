@@ -1,6 +1,6 @@
 /*
  *  ======== build_in_led.h ========
- *  Board built-in LED driver (PB2 blue, PB3 green, high-active).
+ *  Board built-in LED driver (PB3 blue, PB2 green, high-active).
  */
 
 #ifndef BUILD_IN_LED_H
