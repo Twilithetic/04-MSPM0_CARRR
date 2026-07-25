@@ -68,11 +68,6 @@ void uart_init(void)
     g_tx_done_sem = xSemaphoreCreateBinary();
 }
 
-void uart_init_post_scheduler(void)
-{
-    /* no-op: semaphore is already safe */
-}
-
 /*
  * ---- Non-blocking DMA TX ----
  */
@@ -102,38 +97,12 @@ BaseType_t uart_send_async(const uint8_t *data, size_t len, TickType_t timeout)
     return pdTRUE;
 }
 
-void uart_send_flush(TickType_t timeout)
-{
-    // if (g_tx_busy) {
-    //     xSemaphoreTake(g_tx_done_sem, timeout);
-    // }
-}
-
-/*
- * ---- Convenience (blocking) ----
- */
-
-void uart_send(const char *str)
-{
-    size_t len = strlen(str);
-    if (len == 0) { return; }
-    uart_send_async((const uint8_t *) str, len, portMAX_DELAY);
-    uart_send_flush(portMAX_DELAY);
-}
-
-void uart_send_byte(uint8_t b)
-{
-    uart_send_async(&b, 1, portMAX_DELAY);
-    uart_send_flush(portMAX_DELAY);
-}
-
 /*
  * ---- RX (polling) ----
  */
 
 uint8_t uart_recv_byte(void)
 {
-    while (DL_UART_isRXFIFOEmpty(UART_0_INST)) {}
     return DL_UART_receiveDataBlocking(UART_0_INST);
 }
 

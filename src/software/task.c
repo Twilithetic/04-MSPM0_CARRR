@@ -13,8 +13,6 @@
 #include "include/XDS110_cdc.h"
 
 #include <stdio.h>
-#include <string.h>  /* not that you actually need it after your first draft — but
-                         here because you mentioned the pattern */
 
 void vBlueTask(void *pvParameters)
 {
@@ -40,11 +38,9 @@ void vLoggerTask(void *pvParameters)
 {
     (void) pvParameters;
 
-    /* One-shot: un-gate DMA ISR → semaphore path */
-    uart_init_post_scheduler();
-
     /* Startup greeting */
-    uart_send("MSPM0G3507 FreeRTOS — DMA UART0 (PA10/PA11) 115200\r\n");
+    uart_send_async((const uint8_t *)
+        "MSPM0G3507 FreeRTOS — DMA UART0 (PA10/PA11) 115200\r\n", 52, 0);
 
     for (;;) {
         char buf[64];
@@ -54,7 +50,7 @@ void vLoggerTask(void *pvParameters)
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green());
         if (n > 0 && (size_t) n < sizeof(buf)) {
-            uart_send(buf);
+            uart_send_async((const uint8_t *) buf, (size_t) n, 0);
         }
         vTaskDelay(pdMS_TO_TICKS(500));
     }
