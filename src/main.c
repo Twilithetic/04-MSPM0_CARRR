@@ -26,14 +26,13 @@ int main(void)
     uart_init();
     delay_cycles(DELAY_100MS_CYCLES);
 
-    /* ---- Hello via UART ---- */
-    uart_send("MSPM0G3507 FreeRTOS — UART0 (PA10/PA11) 115200\r\n");
-
     /* ---- Create application tasks ---- */
-    xTaskCreate(vBlueTask,  "BlueLED",  configMINIMAL_STACK_SIZE,
-                NULL,       1,          NULL);
-    xTaskCreate(vGreenTask, "GreenLED", configMINIMAL_STACK_SIZE,
-                NULL,       1,          NULL);
+    xTaskCreate(vBlueTask,   "BlueLED",  configMINIMAL_STACK_SIZE,
+                NULL,        1,          NULL);
+    xTaskCreate(vGreenTask,  "GreenLED", configMINIMAL_STACK_SIZE,
+                NULL,        1,          NULL);
+    xTaskCreate(vLoggerTask, "Logger",   configMINIMAL_STACK_SIZE * 2,
+                NULL,        1,          NULL);
 
     /* ---- Start FreeRTOS scheduler (never returns) ---- */
     vTaskStartScheduler();
