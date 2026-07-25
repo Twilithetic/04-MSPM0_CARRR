@@ -12,7 +12,7 @@
 #ifndef MOTOR_H
 #define MOTOR_H
 
-#include "include/motor_reg.h"
+#include "motor_reg.h"
 
 /// Motor proxy — carries only I2C addressing info (no state)
 typedef struct {

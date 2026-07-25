@@ -8,7 +8,7 @@
 #ifndef LINE_H
 #define LINE_H
 
-#include "include/line_reg.h"
+#include "line_reg.h"
 
 /// Line proxy — carries only sensor configuration (no state)
 typedef struct {

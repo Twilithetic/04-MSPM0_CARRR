@@ -26,36 +26,49 @@ const ARCH_FLAGS: &[&str] = &[
     "-mthumb",
 ];
 
+/// (label, source_path) — source_path is project‑relative unless it starts with a drive letter.
 const C_FILES: &[(&str, &str)] = &[
     // ---- SysConfig generated ----
     ("ti_msp_dl_config.c", "Debug/ti_msp_dl_config.c"),
-    (
-        "startup_mspm0g350x_ticlang.c",
-        "C:/ti/mspm0_sdk_2_10_00_04/source/ti/devices/msp/m0p/startup_system_files/ticlang/startup_mspm0g350x_ticlang.c",
-    ),
+    ("startup_mspm0g350x_ticlang.c",
+     "C:/ti/mspm0_sdk_2_10_00_04/source/ti/devices/msp/m0p/startup_system_files/ticlang/startup_mspm0g350x_ticlang.c"),
 
-    // ---- Proxy: shadow register definitions ----
-    ("registers.c", "src/proxy/registers.c"),
+    // ---- Application ----
+    ("main.c",       "src/main.c"),
+    ("task.c",       "src/software/task.c"),
+    ("app_hooks.c",  "src/software/app_hooks.c"),
 
-    // ---- Driver: hardware proxy implementations ----
-    ("motor.c", "src/driver/motor/motor.c"),
-    ("line.c", "src/driver/line/line.c"),
-    ("uart_debug.c", "src/driver/uart/uart_debug.c"),
+    // ---- Driver (minimal — only LED) ----
+    ("build_in_led.c", "src/driver/board/build_in_led.c"),
 
-    // ---- Software: application layer ----
-    ("controller.c", "src/software/controller.c"),
-    ("main.c", "src/main.c"),
+    // ---- FreeRTOS kernel ----
+    ("tasks.c",         "rtos/FreeRTOS/tasks.c"),
+    ("queue.c",         "rtos/FreeRTOS/queue.c"),
+    ("list.c",          "rtos/FreeRTOS/list.c"),
+    ("timers.c",        "rtos/FreeRTOS/timers.c"),
+    ("event_groups.c",  "rtos/FreeRTOS/event_groups.c"),
+    ("stream_buffer.c", "rtos/FreeRTOS/stream_buffer.c"),
+    ("port.c",          "rtos/FreeRTOS/portable/TI_ARM_CLANG/ARM_CM0/port.c"),
+    ("portasm.c",       "rtos/FreeRTOS/portable/TI_ARM_CLANG/ARM_CM0/portasm.c"),
+    ("heap_4.c",        "rtos/FreeRTOS/MemMang/heap_4.c"),
 ];
 
 const OBJS: &[&str] = &[
     "ti_msp_dl_config",
     "startup_mspm0g350x_ticlang",
-    "registers",
-    "motor",
-    "line",
-    "uart_debug",
-    "controller",
     "main",
+    "task",
+    "app_hooks",
+    "build_in_led",
+    "tasks",
+    "queue",
+    "list",
+    "timers",
+    "event_groups",
+    "stream_buffer",
+    "port",
+    "portasm",
+    "heap_4",
 ];
 
 // ---------- helpers ----------
@@ -79,9 +92,6 @@ fn project_dir() -> PathBuf {
     .to_owned()
 }
 
-/// Run a command.  On failure, retry once after a short delay — this handles
-/// transient Windows file locks left behind by probe-rs / DSLite / VSCode
-/// debugger sessions that haven't fully released their output-file handles.
 fn run_with_retry(make_cmd: impl Fn() -> Command, label: &str) {
     let mut cmd = make_cmd();
     let status = cmd
@@ -90,7 +100,6 @@ fn run_with_retry(make_cmd: impl Fn() -> Command, label: &str) {
     if status.success() {
         return;
     }
-    // first attempt failed — wait for stale locks to drain
     eprintln!(
         "WARN: {label} failed (exit {:?}) — file may be locked, retrying in 2 s…",
         status.code()
@@ -166,6 +175,9 @@ fn main() -> ExitCode {
         let project_dir = plain(&project);
         let debug_dir = plain(&debug);
         let src_dir = plain(&project.join("src"));
+        let rtos_inc = plain(&project.join("rtos/FreeRTOS/include"));
+        let rtos_port = plain(&project.join("rtos/FreeRTOS/portable/TI_ARM_CLANG/ARM_CM0"));
+        let rtos_root = plain(&project.join("rtos"));
         let dev_opt = format!("@{}", plain(&debug.join("device.opt")));
         run_with_retry(
             || {
@@ -178,6 +190,9 @@ fn main() -> ExitCode {
                     .args(["-I", &project_dir])
                     .args(["-I", &debug_dir])
                     .args(["-I", &src_dir])
+                    .args(["-I", &rtos_inc])
+                    .args(["-I", &rtos_port])
+                    .args(["-I", &rtos_root])
                     .args(["-I", CMSIS_INCLUDE])
                     .args(["-I", SDK_SOURCE])
                     .args(["-o", &obj])

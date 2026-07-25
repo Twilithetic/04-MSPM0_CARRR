@@ -8,9 +8,9 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#include "include/line_reg.h"
-#include "include/motor_reg.h"
-#include "include/status_reg.h"
+#include "line_reg.h"
+#include "motor_reg.h"
+#include "status_reg.h"
 
 /// PD controller: reads LineReg shadow, writes MotorReg target_speed_* and
 /// StatusReg flags.  Returns true if motors should stop (lost / all-black).
