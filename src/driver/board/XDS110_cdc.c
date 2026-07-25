@@ -56,12 +56,9 @@ void DMA_IRQHandler(void)
 
 void uart_init(void)
 {
-    SYSCFG_DL_UART_0_init();
-    SYSCFG_DL_DMA_init();
+    /* SYSCFG_DL_init() already called SYSCFG_DL_UART_0_init()
+       and SYSCFG_DL_DMA_init() — only need interrupt setup here. */
 
-    /* Enable DMA channel-0 interrupt in the DMA peripheral itself.
-       NVIC_EnableIRQ gates the ISR call; DL_DMA_enableInterrupt gates
-       whether the peripheral ever raises the interrupt at all.  Both needed. */
     DL_DMA_enableInterrupt(DMA, DL_DMA_INTERRUPT_CHANNEL0);
     NVIC_EnableIRQ(DMA_INT_IRQn);
 
