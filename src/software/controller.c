@@ -67,8 +67,8 @@ void controller_calculate(const LineReg *line, MotorReg *motor,
     int32_t derivative;
 
     /* Write status flags from line sensor readings */
-    status->line_lost       = (line->active_count == 0U);
-    status->line_all_black  = (line->active_count >= 4U);
+    status_set_line_lost(status, line->active_count == 0U);
+    status_set_line_all_black(status, line->active_count >= 4U);
 
     /* Stop condition */
     if (line_should_stop(line)) {

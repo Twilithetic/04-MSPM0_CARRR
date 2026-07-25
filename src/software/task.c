@@ -8,12 +8,14 @@
 
 #include "include/app_tasks.h"
 #include "include/build_in_led.h"
+#include "include/led_reg.h"
 
 void vBlueTask(void *pvParameters)
 {
     (void) pvParameters;
     for (;;) {
         blue_led_toggle();
+        led_inc_blue();
         vTaskDelay(pdMS_TO_TICKS(750));
     }
 }
@@ -21,9 +23,9 @@ void vBlueTask(void *pvParameters)
 void vGreenTask(void *pvParameters)
 {
     (void) pvParameters;
-    /* Phase offset: delay first toggle by 250 ms */
     for (;;) {
         green_led_toggle();
+        led_inc_green();
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

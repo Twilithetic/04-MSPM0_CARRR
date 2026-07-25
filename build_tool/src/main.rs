@@ -40,6 +40,7 @@ const C_FILES: &[(&str, &str)] = &[
 
     // ---- Driver (minimal — only LED) ----
     ("build_in_led.c", "src/driver/board/build_in_led.c"),
+    ("registers.c",    "src/proxy/registers.c"),
 
     // ---- FreeRTOS kernel ----
     ("tasks.c",         "rtos/FreeRTOS/tasks.c"),
@@ -60,6 +61,7 @@ const OBJS: &[&str] = &[
     "task",
     "app_hooks",
     "build_in_led",
+    "registers",
     "tasks",
     "queue",
     "list",
