@@ -40,6 +40,7 @@ const C_FILES: &[(&str, &str)] = &[
 
     // ---- Driver (minimal — only LED) ----
     ("build_in_led.c", "src/driver/board/build_in_led.c"),
+    ("XDS110_cdc.c",   "src/driver/board/XDS110_cdc.c"),
     ("registers.c",    "src/proxy/registers.c"),
 
     // ---- FreeRTOS kernel ----
@@ -61,6 +62,7 @@ const OBJS: &[&str] = &[
     "task",
     "app_hooks",
     "build_in_led",
+    "XDS110_cdc",
     "registers",
     "tasks",
     "queue",
@@ -221,14 +223,14 @@ fn main() -> ExitCode {
             c.arg(format!("@{}", plain(&debug.join("device.opt"))))
                 .args(ARCH_FLAGS)
                 .args(["-O2", "-gdwarf-3", "-Wall"])
-                .args(["-Wl,-m", &map])
+                .arg(format!("-Wl,-m={}", &map))
                 .args(["-Wl,-i", SDK_SOURCE])
                 .args(["-Wl,-i", &project_str])
                 .args(["-Wl,-i", COMPILER_LIB])
                 .arg("-Wl,--diag_wrap=off")
                 .arg("-Wl,--display_error_number")
                 .arg("-Wl,--warn_sections")
-                .args(["-Wl,--xml_link_info", &link_xml])
+                .arg(format!("-Wl,--xml_link_info={}", &link_xml))
                 .arg("-Wl,--rom_model")
                 .args(["-o", &elf]);
             for ob in OBJS {

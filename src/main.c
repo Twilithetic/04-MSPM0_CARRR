@@ -12,6 +12,7 @@
 #include "ti_msp_dl_config.h"
 #include "include/app_tasks.h"
 #include "include/app_hooks.h"
+#include "include/XDS110_cdc.h"
 
 #include <FreeRTOS.h>
 #include <task.h>
@@ -22,7 +23,11 @@ int main(void)
 {
     /* ---- Hardware init ---- */
     SYSCFG_DL_init();
+    uart_init();
     delay_cycles(DELAY_100MS_CYCLES);
+
+    /* ---- Hello via UART ---- */
+    uart_send("MSPM0G3507 FreeRTOS — UART0 (PA10/PA11) 115200\r\n");
 
     /* ---- Create application tasks ---- */
     xTaskCreate(vBlueTask,  "BlueLED",  configMINIMAL_STACK_SIZE,
