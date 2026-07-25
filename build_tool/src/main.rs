@@ -27,15 +27,36 @@ const ARCH_FLAGS: &[&str] = &[
 ];
 
 const C_FILES: &[(&str, &str)] = &[
-    ("empty.c", "empty.c"),
+    // ---- SysConfig generated ----
     ("ti_msp_dl_config.c", "Debug/ti_msp_dl_config.c"),
     (
         "startup_mspm0g350x_ticlang.c",
         "C:/ti/mspm0_sdk_2_10_00_04/source/ti/devices/msp/m0p/startup_system_files/ticlang/startup_mspm0g350x_ticlang.c",
     ),
+
+    // ---- Proxy: shadow register definitions ----
+    ("registers.c", "src/proxy/registers.c"),
+
+    // ---- Driver: hardware proxy implementations ----
+    ("motor.c", "src/driver/motor/motor.c"),
+    ("line.c", "src/driver/line/line.c"),
+    ("uart_debug.c", "src/driver/uart/uart_debug.c"),
+
+    // ---- Software: application layer ----
+    ("controller.c", "src/software/controller.c"),
+    ("main.c", "src/main.c"),
 ];
 
-const OBJS: &[&str] = &["empty", "ti_msp_dl_config", "startup_mspm0g350x_ticlang"];
+const OBJS: &[&str] = &[
+    "ti_msp_dl_config",
+    "startup_mspm0g350x_ticlang",
+    "registers",
+    "motor",
+    "line",
+    "uart_debug",
+    "controller",
+    "main",
+];
 
 // ---------- helpers ----------
 
@@ -144,6 +165,7 @@ fn main() -> ExitCode {
 
         let project_dir = plain(&project);
         let debug_dir = plain(&debug);
+        let src_dir = plain(&project.join("src"));
         let dev_opt = format!("@{}", plain(&debug.join("device.opt")));
         run_with_retry(
             || {
@@ -155,6 +177,7 @@ fn main() -> ExitCode {
                     .args(["-D__MSPM0G3507__", "-D__USE_SYSCONFIG__"])
                     .args(["-I", &project_dir])
                     .args(["-I", &debug_dir])
+                    .args(["-I", &src_dir])
                     .args(["-I", CMSIS_INCLUDE])
                     .args(["-I", SDK_SOURCE])
                     .args(["-o", &obj])

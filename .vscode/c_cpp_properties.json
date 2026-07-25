@@ -1,0 +1,29 @@
+{
+    "configurations": [
+        {
+            "name": "MSPM0G3507 (TI ARM Clang)",
+            "compilerPath": "C:/ti/ccs2100/ccs/tools/compiler/ti-cgt-armllvm_5.1.1.LTS/bin/tiarmclang.exe",
+            "includePath": [
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/Debug",
+                "C:/ti/mspm0_sdk_2_10_00_04/source",
+                "C:/ti/mspm0_sdk_2_10_00_04/source/third_party/CMSIS/Core/Include",
+                "C:/ti/mspm0_sdk_2_10_00_04/source/ti/devices/msp/m0p",
+                "C:/ti/ccs2100/ccs/tools/compiler/ti-cgt-armllvm_5.1.1.LTS/include/c",
+                "C:/ti/ccs2100/ccs/tools/compiler/ti-cgt-armllvm_5.1.1.LTS/lib/clang/22/include"
+            ],
+            "defines": [
+                "__MSPM0G3507__",
+                "__USE_SYSCONFIG__"
+            ],
+            "cStandard": "c11",
+            "intelliSenseMode": "linux-gcc-arm",
+            "compilerArgs": [
+                "-march=thumbv6m",
+                "-mcpu=cortex-m0plus",
+                "-mthumb"
+            ]
+        }
+    ],
+    "version": 4
+}
