@@ -37,6 +37,7 @@ void vGreenTask(void *pvParameters)
 void vLoggerTask(void *pvParameters)
 {
     (void) pvParameters;
+    TickType_t xLastWakeTime = xTaskGetTickCount();
 
     /* Startup greeting */
     uart_send_async((const uint8_t *)
@@ -52,6 +53,6 @@ void vLoggerTask(void *pvParameters)
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
         }
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(500));
     }
 }
