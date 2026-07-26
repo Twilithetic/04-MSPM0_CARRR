@@ -15,6 +15,8 @@
 #include "include/XDS110_cdc.h"
 #include "ti_drivers_i2c_config.h"
 
+#include <FreeRTOS.h>
+#include <task.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>

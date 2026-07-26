@@ -38,7 +38,7 @@ int main(void)
                           NULL,        1,          NULL);
     configASSERT(xReturn == pdPASS);
 
-    xReturn = xTaskCreate(vImuTask,   "ImuPoll",  configMINIMAL_STACK_SIZE * 3,
+    xReturn = xTaskCreate(vI2CScanTask, "I2CScan",  configMINIMAL_STACK_SIZE * 3,
                           NULL,        2,          NULL);
     configASSERT(xReturn == pdPASS);
 

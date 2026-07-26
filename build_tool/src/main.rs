@@ -57,6 +57,9 @@ const C_FILES: &[(&str, &str)] = &[
     ("DebugP_freertos.c", "C:/ti/mspm0_sdk_2_10_00_04/kernel/freertos/dpl/DebugP_freertos.c"),
     ("SystemP_freertos.c", "C:/ti/mspm0_sdk_2_10_00_04/kernel/freertos/dpl/SystemP_freertos.c"),
 
+    // ---- POSIX thread-local storage (needed by vTaskDelete) ----
+    ("PTLS.c", "rtos/posix/PTLS.c"),
+
     // ---- FreeRTOS kernel ----
     ("tasks.c",         "rtos/FreeRTOS/tasks.c"),
     ("queue.c",         "rtos/FreeRTOS/queue.c"),
@@ -67,6 +70,9 @@ const C_FILES: &[(&str, &str)] = &[
     ("port.c",          "rtos/FreeRTOS/portable/TI_ARM_CLANG/ARM_CM0/port.c"),
     ("portasm.c",       "rtos/FreeRTOS/portable/TI_ARM_CLANG/ARM_CM0/portasm.c"),
     ("heap_4.c",        "rtos/FreeRTOS/MemMang/heap_4.c"),
+
+    // ---- POSIX thread-local storage (needed by vTaskDelete) ----
+    ("PTLS.c", "rtos/posix/PTLS.c"),
 ];
 
 const OBJS: &[&str] = &[
@@ -85,6 +91,7 @@ const OBJS: &[&str] = &[
     "ClockP_freertos",
     "DebugP_freertos",
     "SystemP_freertos",
+    "PTLS",
     "tasks",
     "queue",
     "list",
@@ -94,6 +101,7 @@ const OBJS: &[&str] = &[
     "port",
     "portasm",
     "heap_4",
+    "PTLS",
 ];
 
 // ---------- helpers ----------

@@ -41,8 +41,8 @@ void vGreenTask(void *pvParameters)
     }
 }
 
-/* ── IMU / I2C init task: run once, then yield forever ── */
-void vImuTask(void *pvParameters)
+/* ── I2C scan task: run once, then suspend forever ── */
+void vI2CScanTask(void *pvParameters)
 {
     (void) pvParameters;
 
@@ -50,8 +50,8 @@ void vImuTask(void *pvParameters)
     i2c_test_init();
     i2c_scan_bus();
 
-    /* TODO: LSM6DSV16X init + SFLP quaternion polling loop */
-    vTaskSuspend(NULL);
+    /* Self-delete: one-shot task, no more work. PTLS.c linked for cleanup hook. */
+    vTaskDelete(NULL);
 }
 
 /* ── Logger task: print LED stats + I2C scan results @ 1 Hz ── */
@@ -64,8 +64,8 @@ void vLoggerTask(void *pvParameters)
     uart_send_async((const uint8_t *)
         "MSPM0G3507 FreeRTOS — TI Drivers I2C Scan\r\n", 47, 0);
 
-    vTaskDelay(pdMS_TO_TICKS(100)); // 等vImuTask
-    /* Print I2C bus scan results (populated by vImuTask, prio=2, already done) */
+    /* Print I2C bus scan results (vI2CScanTask prio=2 already completed) */
+    vTaskDelay(pdMS_TO_TICKS(100));
     i2c_scan_print_results();
 
     for (;;) {
