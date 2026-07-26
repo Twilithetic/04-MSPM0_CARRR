@@ -13,6 +13,11 @@ const TIARMHEX: &str =
     "C:/ti/ccs2100/ccs/tools/compiler/ti-cgt-armllvm_5.1.1.LTS/bin/tiarmhex.exe";
 
 const SDK_SOURCE: &str = "C:/ti/mspm0_sdk_2_10_00_04/source";
+const SDK_KERNEL: &str = "C:/ti/mspm0_sdk_2_10_00_04/kernel";
+const TI_DRIVERS_LIB: &str =
+    "C:/ti/mspm0_sdk_2_10_00_04/source/ti/drivers/lib/ticlang/m0p/drivers_mspm0g1x0x_g3x0x.a";
+const DRIVERLIB_LIB: &str =
+    "C:/ti/mspm0_sdk_2_10_00_04/source/ti/driverlib/lib/ticlang/m0p/mspm0g1x0x_g3x0x/driverlib.a";
 const CMSIS_INCLUDE: &str =
     "C:/ti/mspm0_sdk_2_10_00_04/source/third_party/CMSIS/Core/Include";
 const COMPILER_LIB: &str =
@@ -42,6 +47,15 @@ const C_FILES: &[(&str, &str)] = &[
     ("build_in_led.c", "src/driver/board/build_in_led.c"),
     ("XDS110_cdc.c",   "src/driver/board/XDS110_cdc.c"),
     ("registers.c",    "src/proxy/registers.c"),
+    ("I2C_test.c",     "src/driver/chip/I2C_test.c"),
+    ("ti_drivers_i2c_config.c", "src/driver/chip/ti_drivers_i2c_config.c"),
+
+    // ---- TI Drivers DPL (FreeRTOS porting layer) ----
+    ("HwiPMSPM0_freertos.c", "C:/ti/mspm0_sdk_2_10_00_04/kernel/freertos/dpl/HwiPMSPM0_freertos.c"),
+    ("SemaphoreP_freertos.c", "C:/ti/mspm0_sdk_2_10_00_04/kernel/freertos/dpl/SemaphoreP_freertos.c"),
+    ("ClockP_freertos.c", "C:/ti/mspm0_sdk_2_10_00_04/kernel/freertos/dpl/ClockP_freertos.c"),
+    ("DebugP_freertos.c", "C:/ti/mspm0_sdk_2_10_00_04/kernel/freertos/dpl/DebugP_freertos.c"),
+    ("SystemP_freertos.c", "C:/ti/mspm0_sdk_2_10_00_04/kernel/freertos/dpl/SystemP_freertos.c"),
 
     // ---- FreeRTOS kernel ----
     ("tasks.c",         "rtos/FreeRTOS/tasks.c"),
@@ -64,6 +78,13 @@ const OBJS: &[&str] = &[
     "build_in_led",
     "XDS110_cdc",
     "registers",
+    "I2C_test",
+    "ti_drivers_i2c_config",
+    "HwiPMSPM0_freertos",
+    "SemaphoreP_freertos",
+    "ClockP_freertos",
+    "DebugP_freertos",
+    "SystemP_freertos",
     "tasks",
     "queue",
     "list",
@@ -182,6 +203,9 @@ fn main() -> ExitCode {
         let rtos_inc = plain(&project.join("rtos/FreeRTOS/include"));
         let rtos_port = plain(&project.join("rtos/FreeRTOS/portable/TI_ARM_CLANG/ARM_CM0"));
         let rtos_root = plain(&project.join("rtos"));
+        let ti_drivers_inc = format!("{}/ti/drivers", SDK_SOURCE);
+        let dpl_inc = format!("{}/freertos/dpl", SDK_KERNEL);
+        let display_inc = format!("{}/ti/display", SDK_SOURCE);
         let dev_opt = format!("@{}", plain(&debug.join("device.opt")));
         run_with_retry(
             || {
@@ -197,6 +221,9 @@ fn main() -> ExitCode {
                     .args(["-I", &rtos_inc])
                     .args(["-I", &rtos_port])
                     .args(["-I", &rtos_root])
+                    .args(["-I", &ti_drivers_inc])
+                    .args(["-I", &dpl_inc])
+                    .args(["-I", &display_inc])
                     .args(["-I", CMSIS_INCLUDE])
                     .args(["-I", SDK_SOURCE])
                     .args(["-o", &obj])
@@ -238,6 +265,8 @@ fn main() -> ExitCode {
             }
             c.args(["-Wl,-l", &linker_cmd])
                 .arg("-Wl,-ldevice.cmd.genlibs")
+                .arg(TI_DRIVERS_LIB)
+                .arg(DRIVERLIB_LIB)
                 .arg("-Wl,-llibc.a")
                 .current_dir(&debug_str);
             c

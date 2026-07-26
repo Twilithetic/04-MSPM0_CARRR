@@ -8,6 +8,10 @@
 #include "include/line_reg.h"
 #include "include/status_reg.h"
 #include "include/led_reg.h"
+#include "include/i2c_scanner_reg.h"
+
+#include <stdbool.h>
+#include <stdint.h>
 
 // =====================================================================
 //  MotorReg   (full definition in motor_reg.h — not changed)
@@ -49,7 +53,71 @@ struct LedReg {
 LedReg g_led_reg = {0};
 
 // =====================================================================
-//  StatusReg accessors
+//  I2cScanReg  — I2C bus-scan result shadow register
+// =====================================================================
+struct I2cScanReg {
+    uint8_t  count;                              /* number of devices found */
+    uint8_t  addr[I2C_SCAN_MAX_DEVICES];         /* 7-bit address */
+    uint8_t  whoami[I2C_SCAN_MAX_DEVICES];       /* WHO_AM_I byte (0xFF if N/A) */
+    volatile bool ack_map[I2C_SCAN_ADDR_RANGE];  /* true if addr ACKed */
+};
+
+I2cScanReg g_i2c_scan_reg = {0};
+
+/* ── count ── */
+uint8_t i2c_scan_get_count(void)                     { return g_i2c_scan_reg.count; }
+void    i2c_scan_set_count(uint8_t cnt)              { g_i2c_scan_reg.count = cnt; }
+
+/* ── per-device ── */
+uint8_t i2c_scan_get_addr(uint8_t idx)
+{
+    if (idx >= I2C_SCAN_MAX_DEVICES) { return 0; }
+    return g_i2c_scan_reg.addr[idx];
+}
+
+uint8_t i2c_scan_get_whoami(uint8_t idx)
+{
+    if (idx >= I2C_SCAN_MAX_DEVICES) { return 0xFF; }
+    return g_i2c_scan_reg.whoami[idx];
+}
+
+void i2c_scan_add_device(uint8_t addr, uint8_t whoami)
+{
+    uint8_t idx = g_i2c_scan_reg.count;
+    if (idx >= I2C_SCAN_MAX_DEVICES) { return; }
+    g_i2c_scan_reg.addr[idx]   = addr;
+    g_i2c_scan_reg.whoami[idx] = whoami;
+    g_i2c_scan_reg.ack_map[addr] = true;
+    g_i2c_scan_reg.count = (uint8_t)(idx + 1);
+}
+
+void i2c_scan_clear_all(void)
+{
+    uint16_t i;
+    g_i2c_scan_reg.count = 0;
+    for (i = 0; i < I2C_SCAN_MAX_DEVICES; i++) {
+        g_i2c_scan_reg.addr[i]   = 0;
+        g_i2c_scan_reg.whoami[i] = 0;
+    }
+    for (i = 0; i < I2C_SCAN_ADDR_RANGE; i++) {
+        g_i2c_scan_reg.ack_map[i] = false;
+    }
+}
+
+bool i2c_scan_get_ack(uint8_t addr)
+{
+    if (addr >= I2C_SCAN_ADDR_RANGE) { return false; }
+    return g_i2c_scan_reg.ack_map[addr];
+}
+
+void i2c_scan_set_ack(uint8_t addr, bool present)
+{
+    if (addr >= I2C_SCAN_ADDR_RANGE) { return; }
+    g_i2c_scan_reg.ack_map[addr] = present;
+}
+
+// =====================================================================
+//  StatusReg accessors  (unchanged)
 // =====================================================================
 
 // ---- line_lost ----
@@ -85,7 +153,7 @@ void status_set_target_motor_stop(StatusReg *reg, bool val)   { reg->target_moto
 bool status_get_target_motor_stop(const StatusReg *reg)       { return reg->target_motor_stop; }
 
 // =====================================================================
-//  LedReg accessors
+//  LedReg accessors  (unchanged)
 // =====================================================================
 
 // ---- blue ----
