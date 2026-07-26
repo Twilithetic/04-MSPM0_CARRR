@@ -12,10 +12,12 @@
  */
 
 #include "include/i2c_scanner_reg.h"
+#include "include/XDS110_cdc.h"
 #include "ti_drivers_i2c_config.h"
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 /* ---- Global I2C handle (initialized once) ---- */
 static I2C_Handle g_i2cHandle = NULL;
@@ -112,14 +114,14 @@ void i2c_scan_print_results(void)
     uint8_t cnt = i2c_scan_get_count();
     char buf[64];
     int n;
-    __BKPT(0);  /* breakpoint here to inspect g_i2c_scan_reg in debugger */
+
     n = snprintf(buf, sizeof(buf),
                  "I2C scan: %u device(s) found\r\n",
                  (unsigned int) cnt);
     if (n > 0 && (size_t) n < sizeof(buf)) {
         uart_send_async((const uint8_t *) buf, (size_t) n, 0);
     }
-    __BKPT(0);
+    vTaskDelay(pdMS_TO_TICKS(100));
     for (uint8_t idx = 0; idx < cnt; idx++) {
         uint8_t addr   = i2c_scan_get_addr(idx);
         uint8_t whoami = i2c_scan_get_whoami(idx);
@@ -131,6 +133,6 @@ void i2c_scan_print_results(void)
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
         }
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
-    __BKPT(0);
 }

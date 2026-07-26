@@ -11,11 +11,11 @@
 #include "include/build_in_led.h"
 #include "include/led_reg.h"
 #include "include/XDS110_cdc.h"
-#include "include/i2c_scanner_reg.h"
 
 /* I2C functions (in src/driver/chip/I2C_test.c) */
 extern void i2c_test_init(void);
 extern void i2c_scan_bus(void);
+extern void i2c_scan_print_results(void);
 
 #include <stdio.h>
 
@@ -64,29 +64,9 @@ void vLoggerTask(void *pvParameters)
     uart_send_async((const uint8_t *)
         "MSPM0G3507 FreeRTOS — TI Drivers I2C Scan\r\n", 47, 0);
 
-    /* ── Print I2C bus scan results (from g_i2c_scan_reg, populated at boot) ── */
-    {
-        uint8_t cnt = i2c_scan_get_count();
-        char scan_buf[64];
-        int n2 = snprintf(scan_buf, sizeof(scan_buf),
-                          "I2C scan: %u device(s) found\r\n",
-                          (unsigned int) cnt);
-        if (n2 > 0 && (size_t) n2 < sizeof(scan_buf)) {
-            uart_send_async((const uint8_t *) scan_buf, (size_t) n2, 0);
-        }
-        for (uint8_t idx = 0; idx < cnt; idx++) {
-            uint8_t addr   = i2c_scan_get_addr(idx);
-            uint8_t whoami = i2c_scan_get_whoami(idx);
-            n2 = snprintf(scan_buf, sizeof(scan_buf),
-                          "  [%u] 0x%02X  WHO_AM_I=0x%02X\r\n",
-                          (unsigned int) idx,
-                          (unsigned int) addr,
-                          (unsigned int) whoami);
-            if (n2 > 0 && (size_t) n2 < sizeof(scan_buf)) {
-                uart_send_async((const uint8_t *) scan_buf, (size_t) n2, 0);
-            }
-        }
-    }
+    vTaskDelay(pdMS_TO_TICKS(100)); // 等vImuTask
+    /* Print I2C bus scan results (populated by vImuTask, prio=2, already done) */
+    i2c_scan_print_results();
 
     for (;;) {
         char buf[64];
