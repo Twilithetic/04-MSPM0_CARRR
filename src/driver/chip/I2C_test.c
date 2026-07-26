@@ -102,3 +102,35 @@ void i2c_scan_bus(void)
         }
     }
 }
+
+/*
+ *  Print all devices found in the last scan via UART.
+ *  Call this after i2c_scan_bus() to dump results.
+ */
+void i2c_scan_print_results(void)
+{
+    uint8_t cnt = i2c_scan_get_count();
+    char buf[64];
+    int n;
+    __BKPT(0);  /* breakpoint here to inspect g_i2c_scan_reg in debugger */
+    n = snprintf(buf, sizeof(buf),
+                 "I2C scan: %u device(s) found\r\n",
+                 (unsigned int) cnt);
+    if (n > 0 && (size_t) n < sizeof(buf)) {
+        uart_send_async((const uint8_t *) buf, (size_t) n, 0);
+    }
+    __BKPT(0);
+    for (uint8_t idx = 0; idx < cnt; idx++) {
+        uint8_t addr   = i2c_scan_get_addr(idx);
+        uint8_t whoami = i2c_scan_get_whoami(idx);
+        n = snprintf(buf, sizeof(buf),
+                     "  [%u] 0x%02X  WHO_AM_I=0x%02X\r\n",
+                     (unsigned int) idx,
+                     (unsigned int) addr,
+                     (unsigned int) whoami);
+        if (n > 0 && (size_t) n < sizeof(buf)) {
+            uart_send_async((const uint8_t *) buf, (size_t) n, 0);
+        }
+    }
+    __BKPT(0);
+}
