@@ -26,30 +26,44 @@ static I2C_Handle g_i2cHandle = NULL;
 
 void i2c_test_init(void)
 {
+    /* I2C0 peripheral was removed from empty.syscfg, so SYSCFG_DL_init()
+     * no longer resets or powers I2C0.  Do it manually here. */
+    DL_I2C_reset(I2C0);
+    DL_I2C_enablePower(I2C0);
+    delay_cycles(16);  /* POWER_STARTUP_DELAY */
+
     I2C_init();
 
     I2C_Params params;
     I2C_Params_init(&params);
-    params.bitRate = I2C_400kHz;
+    params.bitRate = I2C_100kHz;
 
     g_i2cHandle = I2C_open(CONFIG_I2C_0, &params);
 }
 
 /*
- *  Probe a single 7-bit address.
- *  Returns true if device ACKed (present on bus).
+ *  Probe a single 7-bit address by writing 1 dummy byte.
+ *  Returns true if device ACKed its address (present on bus).
+ *  The written data is discarded — we only care about ACK vs NACK.
+ *
+ *  NOTE: We use a write (not read) for probing because TI Drivers'
+ *  I2CMSPM0_primeReadBurst has a bug: the isReadInProgress flag is
+ *  never cleared on NACK, causing every subsequent read transaction
+ *  to silently nop and hang forever on the transferComplete semaphore.
+ *  The write path (I2CMSPM0_primeWriteBurst) resets its state properly
+ *  in I2CSupport_primeTransfer on every call.
  */
 static bool i2c_probe_addr(uint8_t addr_7bit)
 {
+    uint8_t dummy = 0;
     I2C_Transaction txn = {0};
     txn.targetAddress = addr_7bit;
-    txn.writeBuf      = NULL;
-    txn.writeCount    = 0;
+    txn.writeBuf      = &dummy;
+    txn.writeCount    = 1;
     txn.readBuf       = NULL;
     txn.readCount     = 0;
 
     bool ok = I2C_transfer(g_i2cHandle, &txn);
-    /* I2C_transfer returns true on success; ADDR_NACK → false */
     return ok;
 }
 
