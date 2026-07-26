@@ -2,9 +2,10 @@
  *  ======== task.c ========
  *  Application task implementations.
  *
- *  vBlueTask   — blink blue LED (PB3) @ 750ms
- *  vGreenTask  — blink green LED (PB2) @ 1000ms
- *  vLoggerTask — print LED stats + I2C scan results via DMA-UART @ 500ms
+ *  vBlueTask    — blink blue LED (PB3) @ 750ms
+ *  vGreenTask   — blink green LED (PB2) @ 1000ms
+ *  vI2CScanTask — I2C bus scan (prio 2), runs once, signals logger
+ *  vLoggerTask  — print LED stats + I2C scan results via DMA-UART @ 1 Hz
  */
 
 #include "include/app_tasks.h"
@@ -17,7 +18,13 @@ extern void i2c_test_init(void);
 extern void i2c_scan_bus(void);
 extern void i2c_scan_print_results(void);
 
+#include <FreeRTOS.h>
+#include <task.h>
+#include <semphr.h>
 #include <stdio.h>
+
+/* ---- Semaphore: I2C scan done → Logger can print ---- */
+static SemaphoreHandle_t g_scanDoneSem = NULL;
 
 /* ── Blue LED blink ── */
 void vBlueTask(void *pvParameters)
@@ -41,20 +48,28 @@ void vGreenTask(void *pvParameters)
     }
 }
 
-/* ── I2C scan task: run once, then suspend forever ── */
+/* ── I2C scan task (prio 2): runs first, signals logger when done ── */
 void vI2CScanTask(void *pvParameters)
 {
     (void) pvParameters;
 
-    /* I2C scan — must run AFTER scheduler starts (TI Drivers uses semaphores) */
+    /*
+     * Create binary semaphore in "taken" state (count=0).
+     * vI2CScanTask (prio 2) ALWAYS runs before vLoggerTask (prio 1),
+     * so g_scanDoneSem is guaranteed valid before vLoggerTask tries to take it.
+     */
+    g_scanDoneSem = xSemaphoreCreateBinary();
+
     i2c_test_init();
     i2c_scan_bus();
 
-    /* Self-delete: one-shot task, no more work. PTLS.c linked for cleanup hook. */
+    /* Signal logger: scan done.  vLoggerTask unblocks and prints. */
+    xSemaphoreGive(g_scanDoneSem);
+
     vTaskDelete(NULL);
 }
 
-/* ── Logger task: print LED stats + I2C scan results @ 1 Hz ── */
+/* ── Logger task (prio 1): waits for scan, then prints @ 1 Hz ── */
 void vLoggerTask(void *pvParameters)
 {
     (void) pvParameters;
@@ -64,8 +79,16 @@ void vLoggerTask(void *pvParameters)
     uart_send_async((const uint8_t *)
         "MSPM0G3507 FreeRTOS — TI Drivers I2C Scan\r\n", 47, 0);
 
-    /* Print I2C bus scan results (vI2CScanTask prio=2 already completed) */
-    vTaskDelay(pdMS_TO_TICKS(100));
+    /*
+     * Block until vI2CScanTask gives the semaphore.
+     * vI2CScanTask (prio 2) creates g_scanDoneSem before this task
+     * (prio 1) ever runs, so the pointer is guaranteed non-NULL.
+     * If however the scan hangs forever, this waits forever too —
+     * put a timeout if that's not acceptable.
+     */
+    xSemaphoreTake(g_scanDoneSem, portMAX_DELAY);
+
+    /* Print I2C bus scan results */
     i2c_scan_print_results();
 
     for (;;) {
