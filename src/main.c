@@ -29,7 +29,7 @@ int main(void)
     /* ---- Hardware init ---- */
     SYSCFG_DL_init();
     uart_init();
-    delay_cycles(DELAY_100MS_CYCLES);
+    i2c_test_init();
 
     /* Create semaphore BEFORE scheduler starts — two tasks will wait on it.
      * Counting semaphore: max 2, initial 0.  vI2CScanTask gives it once

@@ -59,11 +59,7 @@ void vI2CScanTask(void *pvParameters)
 {
     (void) pvParameters;
 
-    i2c_test_init();
     i2c_scan_bus();
-
-    /* Init IMU (must be after I2C is up) */
-    (void) lsm6dsv16x_init();
 
     /* Counting semaphore — give twice: one for ImuPoll, one for Logger */
     xSemaphoreGive(g_scanDoneSem);
@@ -85,6 +81,9 @@ void vImuPollTask(void *pvParameters)
         /* IMU init failed — silently exit */
         vTaskDelete(NULL);
     }
+
+    /* Initialize IMU after I2C scan is done */
+    (void) lsm6dsv16x_init();
 
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
