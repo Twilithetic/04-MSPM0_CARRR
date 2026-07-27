@@ -209,14 +209,24 @@ extern "C" {
 /* EMB_FUNC_FIFO_EN_A */
 #define LSM6DSV16X_SFLP_GAME_FIFO_EN   (1U << 1)
 
-/* SFLP_ODR (5Eh) — SFLP_GAME_ODR[2:0] at bits [4:2] (DS13510 Table 323).
- * Bits 5/1/0 are reserved-must-be-1 → always read-modify-write this register. */
-#define LSM6DSV16X_SFLP_ODR_MASK        (0x07U << 2)
-#define LSM6DSV16X_SFLP_ODR_15HZ        (0x00U << 2)
-#define LSM6DSV16X_SFLP_ODR_30HZ        (0x01U << 2)
-#define LSM6DSV16X_SFLP_ODR_60HZ        (0x02U << 2)
-#define LSM6DSV16X_SFLP_ODR_120HZ       (0x03U << 2)
-#define LSM6DSV16X_SFLP_ODR_240HZ       (0x04U << 2)
+/* SFLP_ODR (5Eh) — SFLP_GAME_ODR[2:0] at bits [5:3] (DS13510 Table 323).
+ *
+ * Register layout (Table 323):
+ *   bit 7: 0 (reserved)
+ *   bit 6: 1 (must-be-1)
+ *   bits[5:3]: SFLP_GAME_ODR[2:0]
+ *   bit 2: 0 (reserved)
+ *   bit 1: 1 (must-be-1)
+ *   bit 0: 1 (must-be-1)
+ *
+ * Default 0x5B = 0b01011011 → ODR=011=120Hz.
+ * Use RMW with this mask to change ODR without disturbing reserved bits. */
+#define LSM6DSV16X_SFLP_ODR_MASK        (0x07U << 3)
+#define LSM6DSV16X_SFLP_ODR_15HZ        (0x00U << 3)
+#define LSM6DSV16X_SFLP_ODR_30HZ        (0x01U << 3)
+#define LSM6DSV16X_SFLP_ODR_60HZ        (0x02U << 3)
+#define LSM6DSV16X_SFLP_ODR_120HZ       (0x03U << 3)
+#define LSM6DSV16X_SFLP_ODR_240HZ       (0x04U << 3)
 
 /* STATUS_REG */
 #define LSM6DSV16X_XLDA                (1U << 0)

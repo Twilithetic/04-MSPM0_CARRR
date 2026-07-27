@@ -36,9 +36,9 @@ extern I2C_Handle g_i2cHandle;
 
 /* ---- SFLP game-specific constants ---- */
 
-/* SFLP game ODR: 60 Hz → SFLP_ODR.SFLP_GAME_ODR[2:0] = 010 */
-#define IMU_ODR_ACCEL        LSM6DSV16X_ODR_XL_240HZ   /* 240 Hz */
-#define IMU_ODR_GYRO         LSM6DSV16X_ODR_G_240HZ    /* 240 Hz */
+/* SFLP game ODR: 60 Hz */
+#define IMU_ODR_ACCEL        LSM6DSV16X_ODR_XL_60HZ    /* 60 Hz — must match SFLP */
+#define IMU_ODR_GYRO         LSM6DSV16X_ODR_G_60HZ     /* 60 Hz — must match SFLP */
 #define IMU_SFLP_ODR_VAL     LSM6DSV16X_SFLP_ODR_60HZ  /* 60 Hz */
 
 #define IMU_FS_ACCEL         LSM6DSV16X_FS_XL_16G
@@ -324,8 +324,10 @@ bool lsm6dsv16x_init(void)
 /*
  *  sync_status_from_device: read STATUS_REG (0x1E) → shadow register.
  *  Raw byte holds the data-ready flags: XLDA|GDA|TDA.
- *  No return value — Client reads the shadow register.
- *  Bus failure leaves the previous shadow value untouched.
+ *
+ *  Also refreshes the SFLP + FIFO diagnostics live (they change at runtime
+ *  as the algorithm calibrates and fills the FIFO).
+ *  Per guideline §4.3: bus failure → no shadow update.
  */
 void lsm6dsv16x_sync_status_from_device(void)
 {
@@ -338,6 +340,20 @@ void lsm6dsv16x_sync_status_from_device(void)
         imu_set_status(status);
     } else {
         imu_inc_bus_err();
+    }
+
+    /* Live SFLP diagnostics: read embedded page + FIFO watermarks */
+    {
+        uint8_t en_a, init_a, exec_s, fifo_ena, fs1, fs2;
+        imu_set_bank(BANK_EMBED);
+        en_a     = imu_read_reg(LSM6DSV16X_EMB_FUNC_EN_A);
+        init_a   = imu_read_reg(LSM6DSV16X_EMB_FUNC_INIT_A);
+        exec_s   = imu_read_reg(LSM6DSV16X_EMB_FUNC_EXEC_STATUS);
+        fifo_ena = imu_read_reg(LSM6DSV16X_EMB_FUNC_FIFO_EN_A);
+        imu_set_bank(BANK_MAIN);
+        fs1 = imu_read_reg(LSM6DSV16X_FIFO_STATUS1);
+        fs2 = imu_read_reg(LSM6DSV16X_FIFO_STATUS2);
+        imu_set_sflp_diag(en_a, init_a, exec_s, fifo_ena, fs1, fs2);
     }
 }
 
