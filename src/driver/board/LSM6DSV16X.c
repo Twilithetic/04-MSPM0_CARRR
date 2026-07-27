@@ -264,10 +264,8 @@ bool lsm6dsv16x_init(void)
      *   3. EMB_FUNC_INIT_A.SFLP_GAME_INIT = 1  (self-clearing)
      *   4. EMB_FUNC_FIFO_EN_A.SFLP_GAME_FIFO_EN = 1
      *
-     * WARNING: accessing the embedded page via FUNC_CFG_ACCESS.EMB_FUNC_REG_ACCESS
-     * zeroes main-page control registers on this chip.  The ODR and FS registers
-     * are re-applied AFTER the embedded cycle.  Do NOT interleave bank-switch
-     * operations with main-page reads/writes or the config will be silently lost.
+     * Bank switch via FUNC_CFG_ACCESS.EMB_FUNC_REG_ACCESS (bit 7);
+     * bit 2 is SW_POR (global reset) — never touch it.
      */
 
     /* 8a. Enable the SFLP game algorithm processor */
@@ -291,48 +289,7 @@ bool lsm6dsv16x_init(void)
     imu_write_reg(LSM6DSV16X_FIFO_CTRL4,
                   LSM6DSV16X_FIFO_MODE_CONTINUOUS);
 
-    /*
-     * EVERY call to imu_set_bank() (enter/exit embed page via
-     * FUNC_CFG_ACCESS read-modify-write) silently zeroes main-page
-     * control registers on this chip.  The four imu_embed_* calls above
-     * each do one entry + one exit = 8 clears total.
-     *
-     * Therefore the main-page config MUST be re-applied as the *last*
-     * step before imu_set_ready().  Any readback of embedded registers
-     * also goes through bank entry/exit, so readback happens BEFORE
-     * this final restore and fixes the values of En/Init/Exec/FIFO_EN
-     * for the logger to print.
-     */
-
-    /* ── SFLP diag: read embed registers while we still have them ── */
-    {
-        uint8_t en_a, init_a, exec_s, fifo_ena;
-        imu_set_bank(BANK_EMBED);
-        en_a     = imu_read_reg(LSM6DSV16X_EMB_FUNC_EN_A);
-        init_a   = imu_read_reg(LSM6DSV16X_EMB_FUNC_INIT_A);
-        exec_s   = imu_read_reg(LSM6DSV16X_EMB_FUNC_EXEC_STATUS);
-        fifo_ena = imu_read_reg(LSM6DSV16X_EMB_FUNC_FIFO_EN_A);
-        imu_set_bank(BANK_MAIN);      /* ← zeros main-page regs again */
-        {
-            uint8_t fs1 = imu_read_reg(LSM6DSV16X_FIFO_STATUS1);
-            uint8_t fs2 = imu_read_reg(LSM6DSV16X_FIFO_STATUS2);
-            imu_set_sflp_diag(en_a, init_a, exec_s, fifo_ena, fs1, fs2);
-        }
-    }
-
-    /*
-     * ── FINAL: restore main-page configuration after ALL bank operations ──
-     *
-     * Guideline §4.6: all writes to main-page regs that must survive
-     * into the runtime must come after all FUNC_CFG_ACCESS bank writes.
-     */
-    imu_write_reg(LSM6DSV16X_CTRL1_XL, IMU_ODR_ACCEL);
-    imu_write_reg(LSM6DSV16X_CTRL2_G,  IMU_ODR_GYRO);
-    imu_write_reg(LSM6DSV16X_CTRL8_XL, IMU_FS_ACCEL);
-    imu_write_reg(LSM6DSV16X_CTRL6_G,  IMU_FS_GYRO);
-    imu_write_reg(LSM6DSV16X_CTRL3, LSM6DSV16X_IF_INC | LSM6DSV16X_BDU);
-
-    /* Verify the final restore stuck */
+    /* ── Readback #2: verify main-page config survived ── */
     imu_set_cfg_post_sflp(
         imu_read_reg(LSM6DSV16X_CTRL1_XL),
         imu_read_reg(LSM6DSV16X_CTRL2_G),
@@ -340,6 +297,20 @@ bool lsm6dsv16x_init(void)
         imu_read_reg(LSM6DSV16X_CTRL6_G)
     );
     imu_set_cfg_fca(imu_read_reg(LSM6DSV16X_FUNC_CFG_ACCESS));
+
+    /* ── SFLP diag: read-back embedded-page registers ── */
+    {
+        uint8_t en_a, init_a, exec_s, fifo_ena, fs1, fs2;
+        imu_set_bank(BANK_EMBED);
+        en_a     = imu_read_reg(LSM6DSV16X_EMB_FUNC_EN_A);
+        init_a   = imu_read_reg(LSM6DSV16X_EMB_FUNC_INIT_A);
+        exec_s   = imu_read_reg(LSM6DSV16X_EMB_FUNC_EXEC_STATUS);
+        fifo_ena = imu_read_reg(LSM6DSV16X_EMB_FUNC_FIFO_EN_A);
+        imu_set_bank(BANK_MAIN);
+        fs1 = imu_read_reg(LSM6DSV16X_FIFO_STATUS1);
+        fs2 = imu_read_reg(LSM6DSV16X_FIFO_STATUS2);
+        imu_set_sflp_diag(en_a, init_a, exec_s, fifo_ena, fs1, fs2);
+    }
 
     imu_set_ready(1);
 

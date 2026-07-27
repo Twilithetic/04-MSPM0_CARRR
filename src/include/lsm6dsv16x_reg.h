@@ -165,8 +165,19 @@ extern "C" {
 /* CTRL8_XL — accel full-scale (bits 1:0) */
 #define LSM6DSV16X_FS_XL_16G            0x03U
 
-/* FUNC_CFG_ACCESS — memory bank switching */
-#define LSM6DSV16X_EMB_FUNC_REG_ACCESS   (1U << 2)
+/* FUNC_CFG_ACCESS (DS13510 Table 25) — memory bank switching
+ *
+ * WARNING: bit 2 is SW_POR (global device reset), NOT emb_func_reg_access!
+ * Writing 0x04 to FUNC_CFG_ACCESS triggers a full chip reset.
+ *
+ *   bit 7  EMB_FUNC_REG_ACCESS = unlocks embedded-function page
+ *   bit 6  SHUB_REG_ACCESS     = unlocks sensor-hub page
+ *   bit 3  FSM_WR_CTRL_EN
+ *   bit 2  SW_POR              = GLOBAL RESET (do NOT set unless intended)
+ *   bit 1  SPI2_RESET
+ *   bit 0  OIS_CTRL_FROM_UI
+ */
+#define LSM6DSV16X_EMB_FUNC_REG_ACCESS   (1U << 7)
 
 /* EMB_FUNC_EN_A (DS13510 Table 265) */
 #define LSM6DSV16X_SFLP_GAME_EN         (1U << 1)  /* enable SFLP game rotation vector */
