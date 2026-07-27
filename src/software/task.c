@@ -91,30 +91,20 @@ void vImuPollTask(void *pvParameters)
 
     for (;;) {
         lsm6dsv16x_sync_from_device();
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(5));  /* 200 Hz — faster than SFLP 240 Hz */
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(5));  /* 200 Hz */
     }
 }
 
-/* ── Logger task (prio 1): waits for scan, then prints IMU data @ 1 Hz ── */
+/* ── Logger task (prio 1): prints IMU stats @ ~8 Hz (123 ms period) ── */
 void vLoggerTask(void *pvParameters)
 {
     (void) pvParameters;
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
-    /* Startup greeting */
     uart_send_async((const uint8_t *)
-        "MSPM0G3507 FreeRTOS — TI Drivers I2C Scan\r\n", 47, 0);
+        "MSPM0G3507 FreeRTOS — I2C Scan\r\n", 35, 0);
 
-    /*
-     * Block until vI2CScanTask gives the semaphore.
-     * vI2CScanTask (prio 2) creates g_scanDoneSem before this task
-     * (prio 1) ever runs, so the pointer is guaranteed non-NULL.
-     * If however the scan hangs forever, this waits forever too —
-     * put a timeout if that's not acceptable.
-     */
     xSemaphoreTake(g_scanDoneSem, portMAX_DELAY);
-
-    /* Print I2C bus scan results */
     i2c_scan_print_results();
 
     for (;;) {
@@ -123,48 +113,24 @@ void vLoggerTask(void *pvParameters)
         unsigned long secs  = ticks / 1000;
         unsigned long ms    = ticks % 1000;
 
+        uint16_t qps   = imu_get_qps();
+        int16_t  yaw   = imu_get_yaw_deg100();
+        int16_t  pitch = imu_get_pitch_deg100();
+        int16_t  roll  = imu_get_roll_deg100();
+
         int n = snprintf(buf, sizeof(buf),
-                         "[%lu.%03lus] B:%lu G:%lu"
-                         " | IMU who:0x%02X rdy:%u ie:%u"
-                         " cfg:B3=0x%02X C3=0x%02X C1=0x%02X C2=0x%02X"
-                         " post:C1=0x%02X C2=0x%02X C8=0x%02X C6=0x%02X"
-                         " fca=0x%02X be:%lu"
-                         " SFLP:en=0x%02X in=0x%02X ex=0x%02X fi=0x%02X FIFO:%u/%u odr=0x%02X pg=0x%02X"
-                         " | q:%d %d %d %d"
-                         " | g:%d %d %d"
-                         " | a:%d %d %d\r\n",
+                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u yaw:%7.2f° pitch:%7.2f° roll:%7.2f°\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
-                         (unsigned int) imu_get_whoami(),
-                         (unsigned int) imu_is_ready(),
-                         (unsigned int) imu_get_init_err(),
-                         (unsigned int) imu_get_cfg_ctrl3_boot(),
-                         (unsigned int) imu_get_cfg_ctrl3(),
-                         (unsigned int) imu_get_cfg_ctrl1_xl(),
-                         (unsigned int) imu_get_cfg_ctrl2_g(),
-                         (unsigned int) imu_get_cfg_post_ctrl1(),
-                         (unsigned int) imu_get_cfg_post_ctrl2(),
-                         (unsigned int) imu_get_cfg_post_ctrl8(),
-                         (unsigned int) imu_get_cfg_post_ctrl6(),
-                         (unsigned int) imu_get_cfg_fca(),
-                         (unsigned long) imu_get_bus_err(),
-                         (unsigned int) imu_get_sflp_en_a(),
-                         (unsigned int) imu_get_sflp_init_a(),
-                         (unsigned int) imu_get_sflp_exec_status(),
-                         (unsigned int) imu_get_sflp_fifo_en_a(),
-                         (unsigned int) imu_get_fifo_status1(),
-                         (unsigned int) imu_get_fifo_status2(),
-                         (unsigned int) imu_get_sflp_odr_rdbk(),
-                         (unsigned int) imu_get_page_sel_rdbk(),
-                         (int) imu_get_qw(), (int) imu_get_qx(),
-                         (int) imu_get_qy(), (int) imu_get_qz(),
-                         (int) imu_get_gx(), (int) imu_get_gy(), (int) imu_get_gz(),
-                         (int) imu_get_ax(), (int) imu_get_ay(), (int) imu_get_az());
+                         (unsigned int) qps,
+                         (double) yaw   / 100.0,
+                         (double) pitch / 100.0,
+                         (double) roll  / 100.0);
 
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
         }
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
     }
 }

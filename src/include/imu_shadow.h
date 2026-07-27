@@ -53,6 +53,18 @@ uint32_t imu_get_timestamp_ms(void);
 /** Total samples synced */
 uint32_t imu_get_sample_count(void);
 
+/** Get quaternion rate (samples/second), computed from delta since last call */
+uint16_t imu_get_qps(void);
+
+/** Yaw angle (degrees * 100) */
+int16_t imu_get_yaw_deg100(void);
+
+/** Pitch angle (degrees * 100) */
+int16_t imu_get_pitch_deg100(void);
+
+/** Roll angle (degrees * 100) */
+int16_t imu_get_roll_deg100(void);
+
 /** Nonzero if IMU initialised OK */
 uint8_t  imu_is_ready(void);
 
@@ -83,6 +95,8 @@ uint8_t  imu_get_tda(void);
  * ================================================================ */
 
 void imu_set_quaternion(int16_t qw, int16_t qx, int16_t qy, int16_t qz);
+void imu_inc_q_count(void);
+void imu_set_euler(int16_t yaw, int16_t pitch, int16_t roll);
 void imu_set_gyro(int16_t gx, int16_t gy, int16_t gz);
 void imu_set_accel(int16_t ax, int16_t ay, int16_t az);
 void imu_set_temp(int16_t temp);

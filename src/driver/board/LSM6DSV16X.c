@@ -96,6 +96,24 @@ static void sflp2q(float quat[4], const uint16_t sflp[3])
     quat[3] = sqrtf(qw_sq);
 }
 
+/*
+ *  yaw_from_quat — extract yaw (heading) in degrees * 100.
+ *  quat = {qx, qy, qz, qw}   (ST SFLP convention: X/Y/Z quaternion components, W computed)
+ */
+static int16_t yaw_from_quat(const float q[4])
+{
+    float qw = q[3], qx = q[0], qy = q[1], qz = q[2];
+
+    /* yaw = atan2(2(qw*qz + qx*qy), 1 - 2(qy² + qz²)) */
+    float siny = 2.0f * (qw * qz + qx * qy);
+    float cosy = 1.0f - 2.0f * (qy * qy + qz * qz);
+    float yaw_rad = atan2f(siny, cosy);
+
+    /* rad → deg, then *100 for fixed-point */
+    float yaw_deg = yaw_rad * 57.29578f;  /* 180/PI */
+    return (int16_t)(yaw_deg * 100.0f);
+}
+
 /* ====================================================================
  *  Public API
  * ==================================================================== */
@@ -268,6 +286,33 @@ void lsm6dsv16x_sync_from_device(void)
                     (int16_t)(quat[0] / 0.061f),
                     (int16_t)(quat[1] / 0.061f),
                     (int16_t)(quat[2] / 0.061f));
+                imu_inc_q_count();
+
+                /* Decode full Euler angles (yaw/pitch/roll in °*100) */
+                {
+                    float qw = quat[3], qx = quat[0], qy = quat[1], qz = quat[2];
+
+                    /* yaw   = atan2(2(qw*qz + qx*qy), 1 - 2(qy² + qz²)) */
+                    float sy = 2.0f * (qw * qz + qx * qy);
+                    float cy = 1.0f - 2.0f * (qy * qy + qz * qz);
+                    float yaw_rad = atan2f(sy, cy);
+
+                    /* pitch = asin(2(qw*qy - qz*qx)), clamped */
+                    float sp = 2.0f * (qw * qy - qz * qx);
+                    if (sp > 1.0f) sp = 1.0f;
+                    if (sp < -1.0f) sp = -1.0f;
+                    float pitch_rad = asinf(sp);
+
+                    /* roll  = atan2(2(qw*qx + qy*qz), 1 - 2(qx² + qy²)) */
+                    float sr = 2.0f * (qw * qx + qy * qz);
+                    float cr = 1.0f - 2.0f * (qx * qx + qy * qy);
+                    float roll_rad = atan2f(sr, cr);
+
+                    imu_set_euler(
+                        (int16_t)(yaw_rad   * 5729.578f),  /* * 18000/PI */
+                        (int16_t)(pitch_rad * 5729.578f),
+                        (int16_t)(roll_rad  * 5729.578f));
+                }
             }
         }
     }

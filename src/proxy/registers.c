@@ -141,6 +141,23 @@ struct LSM6DSV16XReg {
     /* total sample count since init */
     uint32_t sample_count;
 
+    /* quaternion count in current 1s window */
+    uint16_t q_count;
+
+    /* timestamp of last qps snap (FreeRTOS tick) */
+    uint32_t last_qps_tick;
+
+    /* q_count at last qps snap */
+    uint16_t last_qps_count;
+
+    /* computed quaternion rate (samples / second) */
+    uint16_t qps;
+
+    /* Euler angles from quaternion (degrees * 100) */
+    int16_t yaw_deg100;
+    int16_t pitch_deg100;
+    int16_t roll_deg100;
+
     /* WHO_AM_I byte read during init (0x70 = genuine LSM6DSV16X) */
     uint8_t whoami;
 
@@ -199,6 +216,22 @@ int16_t  imu_get_temp(void)            { return g_lsm6dsv16x_reg.temp; }
 
 uint32_t imu_get_timestamp_ms(void)    { return g_lsm6dsv16x_reg.timestamp_ms; }
 uint32_t imu_get_sample_count(void)    { return g_lsm6dsv16x_reg.sample_count; }
+uint16_t imu_get_qps(void)
+{
+    uint32_t now  = xTaskGetTickCount();
+    uint32_t dt   = now - g_lsm6dsv16x_reg.last_qps_tick;
+    uint16_t dq   = (uint16_t)(g_lsm6dsv16x_reg.q_count - g_lsm6dsv16x_reg.last_qps_count);
+
+    g_lsm6dsv16x_reg.last_qps_tick  = now;
+    g_lsm6dsv16x_reg.last_qps_count = g_lsm6dsv16x_reg.q_count;
+
+    if (dt == 0) { return 0; }
+    /* qps = dq * 1000 / dt   (dt in ms) */
+    return (uint16_t)(((uint32_t)dq * 1000U) / dt);
+}
+int16_t  imu_get_yaw_deg100(void)        { return g_lsm6dsv16x_reg.yaw_deg100; }
+int16_t  imu_get_pitch_deg100(void)      { return g_lsm6dsv16x_reg.pitch_deg100; }
+int16_t  imu_get_roll_deg100(void)       { return g_lsm6dsv16x_reg.roll_deg100; }
 uint8_t  imu_is_ready(void)            { return g_lsm6dsv16x_reg.ready; }
 uint8_t  imu_get_whoami(void)          { return g_lsm6dsv16x_reg.whoami; }
 uint8_t  imu_get_init_err(void)        { return g_lsm6dsv16x_reg.init_err; }
@@ -249,6 +282,13 @@ void imu_set_accel(int16_t ax, int16_t ay, int16_t az)
     g_lsm6dsv16x_reg.az = az;
 }
 
+void imu_inc_q_count(void)                { g_lsm6dsv16x_reg.q_count++; }
+void imu_set_euler(int16_t y, int16_t p, int16_t r)
+{
+    g_lsm6dsv16x_reg.yaw_deg100   = y;
+    g_lsm6dsv16x_reg.pitch_deg100 = p;
+    g_lsm6dsv16x_reg.roll_deg100  = r;
+}
 void imu_set_temp(int16_t temp)               { g_lsm6dsv16x_reg.temp = temp; }
 void imu_set_timestamp_ms(uint32_t ts)         { g_lsm6dsv16x_reg.timestamp_ms = ts; }
 void imu_inc_sample_count(void)                { g_lsm6dsv16x_reg.sample_count++; }
