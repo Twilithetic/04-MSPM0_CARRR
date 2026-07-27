@@ -255,28 +255,19 @@ bool lsm6dsv16x_init(void)
     imu_write_reg(LSM6DSV16X_CTRL6_G,
                   IMU_FS_GYRO);     /* bits 3:0 = 0x04 = ±2000 dps */
 
-    /* 8a. Embedded bank: enable the SFLP game algorithm itself */
-    imu_embed_write_reg(LSM6DSV16X_EMB_FUNC_EN_A,
-                        LSM6DSV16X_SFLP_GAME_EN);
-
-    /* 8b. Initialize the SFLP algorithm (self-clearing request bit) */
-    imu_embed_write_reg(LSM6DSV16X_EMB_FUNC_INIT_A,
-                        LSM6DSV16X_SFLP_GAME_INIT);
-
-    /* 8c. SFLP game ODR = 60 Hz (RMW: reserved must-be-1 bits 5/1/0) */
-    imu_embed_rmw_reg(LSM6DSV16X_SFLP_ODR,
-                      LSM6DSV16X_SFLP_ODR_MASK,
-                      IMU_SFLP_ODR_VAL);
-
-    /* 8d. Batch SFLP game rotation vector into the FIFO */
-    imu_embed_write_reg(LSM6DSV16X_EMB_FUNC_FIFO_EN_A,
-                        LSM6DSV16X_SFLP_GAME_FIFO_EN);
-
-    /* 9. FIFO_CTRL4: FIFO continuous mode */
-    imu_write_reg(LSM6DSV16X_FIFO_CTRL4,
-                  LSM6DSV16X_FIFO_MODE_CONTINUOUS);
-
-    /* ── Readback #2: verify registers survived embedded-bank access ── */
+    /*
+     * NOTE: SFLP (quaternion) init is intentionally *disabled* for now.
+     * The embedded-bank register overlay (FUNC_CFG_ACCESS.EMB_FUNC_REG_ACCESS)
+     * was zeroing out every main-page control register after returning to
+     * the main bank — root cause of the data=0 symptom.  We'll bring SFLP
+     * back after the bank-switching mechanism is understood for this chip
+     * (likely needs SHUB_MASTER_EN or a different access method).
+     *
+     * For now the sync path reads raw accel + gyro + temp only.
+     * FIFO is left in bypass mode (default).
+     *
+     * ── Readback #2: verify registers survived without SFLP ──
+     */
     imu_set_cfg_post_sflp(
         imu_read_reg(LSM6DSV16X_CTRL1_XL),
         imu_read_reg(LSM6DSV16X_CTRL2_G),
