@@ -11,12 +11,15 @@
  *    - Accel  @ 240 Hz, ±16g
  *    - Gyro   @ 240 Hz, ±2000 dps
  *    - SFLP Game Rotation Vector (quaternion) via FIFO @ 60 Hz
+ *    - sync_status_from_device() reads STATUS_REG → shadow register
  *    - sync_imu_from_device() reads accel+gyro+temp → shadow register
  *    - When SFLP FIFO is enabled, reads quaternion tag from FIFO
  *
  *  Hardware:
  *    I2C0  PA0/SDA  PA1/SCL @ 400 kHz
- *    LSM6DSV16X 7-bit address 0x6B (SA0=VDD on most breakouts)
+ *    LSM6DSV16X 7-bit address 0x6A (SA0=GND) or 0x6B (SA0=VDD).
+ *    The address is auto-detected from the bus-scan shadow register —
+ *    do NOT hardcode it (datasheet DS13510 §5.1.2: SAD = 110101xb).
  */
 
 #include "include/lsm6dsv16x_reg.h"
@@ -33,15 +36,21 @@ extern I2C_Handle g_i2cHandle;
 
 /* ---- SFLP game-specific constants ---- */
 
-/* SFLP game ODR: 60 Hz → CTRL1_XL[3:0] = 0x06 */
+/* SFLP game ODR: 60 Hz → SFLP_ODR.SFLP_GAME_ODR[2:0] = 010 */
 #define IMU_ODR_ACCEL        LSM6DSV16X_ODR_XL_240HZ   /* 240 Hz */
 #define IMU_ODR_GYRO         LSM6DSV16X_ODR_G_240HZ    /* 240 Hz */
-#define IMU_SFLP_ODR_VAL     0x02U                       /* SFLP 60 Hz */
+#define IMU_SFLP_ODR_VAL     LSM6DSV16X_SFLP_ODR_60HZ  /* 60 Hz */
 
 #define IMU_FS_ACCEL         LSM6DSV16X_FS_XL_16G
 #define IMU_FS_GYRO          LSM6DSV16X_FS_G_2000DPS
 
-#define IMU_I2C_ADDR         0x6BU
+/* ====================================================================
+ *  Proxy addressing info (guideline §4.1: Proxy 只存寻址信息，不存状态)
+ *
+ *  Resolved once from the bus-scan shadow register before init.
+ *  Default 0x6B so behaviour is sane even if resolution never ran.
+ * ==================================================================== */
+static uint8_t s_imu_addr = LSM6DSV16X_I2C_ADDR_SA0_1;
 
 /* ====================================================================
  *  Low-level I2C helpers  (raw_* functions — pure protocol, no biz logic)
@@ -54,7 +63,7 @@ static bool imu_write_reg(uint8_t reg, uint8_t val)
 {
     uint8_t buf[2] = { reg, val };
     I2C_Transaction txn = {0};
-    txn.targetAddress = IMU_I2C_ADDR;
+    txn.targetAddress = s_imu_addr;
     txn.writeBuf      = buf;
     txn.writeCount    = 2;
     txn.readBuf       = NULL;
@@ -69,7 +78,7 @@ static uint8_t imu_read_reg(uint8_t reg)
 {
     uint8_t val = 0;
     I2C_Transaction txn = {0};
-    txn.targetAddress = IMU_I2C_ADDR;
+    txn.targetAddress = s_imu_addr;
     txn.writeBuf      = &reg;
     txn.writeCount    = 1;
     txn.readBuf       = &val;
@@ -85,7 +94,7 @@ static uint8_t imu_read_reg(uint8_t reg)
 static bool imu_read_burst(uint8_t reg, uint8_t *dst, uint8_t len)
 {
     I2C_Transaction txn = {0};
-    txn.targetAddress = IMU_I2C_ADDR;
+    txn.targetAddress = s_imu_addr;
     txn.writeBuf      = &reg;
     txn.writeCount    = 1;
     txn.readBuf       = dst;
@@ -129,6 +138,21 @@ static bool imu_embed_write_reg(uint8_t reg, uint8_t val)
     return ok;
 }
 
+/*
+ *  Read-modify-write a register on the embedded-function page.
+ *  Needed for registers with reserved must-be-1 bits (e.g. SFLP_ODR).
+ */
+static bool imu_embed_rmw_reg(uint8_t reg, uint8_t mask, uint8_t val)
+{
+    uint8_t cur;
+    bool ok;
+    imu_set_bank(BANK_EMBED);
+    cur = imu_read_reg(reg);
+    ok  = imu_write_reg(reg, (uint8_t)((cur & ~mask) | (val & mask)));
+    imu_set_bank(BANK_MAIN);
+    return ok;
+}
+
 /* ====================================================================
  *  Initialisation
  * ==================================================================== */
@@ -136,25 +160,41 @@ static bool imu_embed_write_reg(uint8_t reg, uint8_t val)
 /*
  *  Check if the IMU responded to the I2C bus scan.
  *  Uses g_i2c_scan_reg — populated by i2c_scan_bus() before this call.
- *  Returns true if the LSM6DSV16X was found at its expected address.
+ *
+ *  Side effect: resolves s_imu_addr (Proxy addressing info) to whichever
+ *  of the two possible addresses actually ACKed.  SA0=GND → 0x6A,
+ *  SA0=VDD → 0x6B (datasheet DS13510 §5.1.2).
+ *
+ *  Returns true if the LSM6DSV16X was found at either address.
  */
 bool lsm6dsv16x_is_present(void)
 {
-    return i2c_scan_get_ack(LSM6DSV16X_I2C_ADDR_SA0_0) ||
-           i2c_scan_get_ack(LSM6DSV16X_I2C_ADDR_SA0_1);
+    if (i2c_scan_get_ack(LSM6DSV16X_I2C_ADDR_SA0_0)) {
+        s_imu_addr = LSM6DSV16X_I2C_ADDR_SA0_0;
+        return true;
+    }
+    if (i2c_scan_get_ack(LSM6DSV16X_I2C_ADDR_SA0_1)) {
+        s_imu_addr = LSM6DSV16X_I2C_ADDR_SA0_1;
+        return true;
+    }
+    return false;
 }
 
 /*
  *  Init LSM6DSV16X.
  *  Sequence:
- *    1. Software reset → wait 100 ms
- *    2. CTRL3: enable IF_INC + BDU
- *    3. CTRL1_XL: accel 240 Hz, HP mode
- *    4. CTRL2_G:  gyro  240 Hz, HP mode
- *    5. CTRL8_XL: accel ±16g
- *    6. CTRL6_G:  gyro  ±2000 dps
- *    7. Embedded bank: enable SFLP game FIFO
- *    8. FIFO_CTRL4: continuous mode
+ *    1. Verify WHO_AM_I (= 0x70) at the detected address → shadow
+ *    2. Software reset → wait 100 ms
+ *    3. CTRL3: enable IF_INC + BDU
+ *    4. CTRL1_XL: accel 240 Hz, HP mode
+ *    5. CTRL2_G:  gyro  240 Hz, HP mode
+ *    6. CTRL8_XL: accel ±16g
+ *    7. CTRL6_G:  gyro  ±2000 dps
+ *    8. Embedded bank: SFLP game enable + init + ODR 60 Hz + FIFO batching
+ *       (datasheet DS13510 §13: EN_A.SFLP_GAME_EN, INIT_A.SFLP_GAME_INIT,
+ *        SFLP_ODR, FIFO_EN_A.SFLP_GAME_FIFO_EN — all four are required,
+ *        missing any one leaves the FIFO empty)
+ *    9. FIFO_CTRL4: continuous mode
  *
  *  Returns true if WHO_AM_I matches.
  */
@@ -162,9 +202,12 @@ bool lsm6dsv16x_init(void)
 {
     /* 1. Verify device identity */
     uint8_t whoami = imu_read_reg(LSM6DSV16X_WHO_AM_I);
+    imu_set_whoami(whoami);
     if (whoami != LSM6DSV16X_WHO_AM_I_VALUE) {
+        imu_set_init_err(1);   /* WHO_AM_I mismatch */
         return false;
     }
+    imu_set_init_err(0);  /* clear (default 0=OK) */
 
     /* 2. Software reset */
     imu_write_reg(LSM6DSV16X_CTRL3, LSM6DSV16X_SW_RESET);
@@ -177,7 +220,10 @@ bool lsm6dsv16x_init(void)
     {
         uint32_t timeout = 100000U;
         while (imu_read_reg(LSM6DSV16X_CTRL3) & LSM6DSV16X_BOOT) {
-            if (timeout-- == 0) { return false; }
+            if (timeout-- == 0) {
+                imu_set_init_err(2);   /* BOOT bit timeout */
+                return false;
+            }
         }
     }
 
@@ -199,15 +245,35 @@ bool lsm6dsv16x_init(void)
 
     /* 7. CTRL6_G: gyro ±2000 dps */
     imu_write_reg(LSM6DSV16X_CTRL6_G,
-                  IMU_FS_GYRO);     /* bits 3:0 = 0x03 = ±2000 dps */
+                  IMU_FS_GYRO);     /* bits 3:0 = 0x04 = ±2000 dps */
 
-    /* 8. Enable SFLP game rotation vector in FIFO (embedded page) */
+    /* 8a. Embedded bank: enable the SFLP game algorithm itself */
+    imu_embed_write_reg(LSM6DSV16X_EMB_FUNC_EN_A,
+                        LSM6DSV16X_SFLP_GAME_EN);
+
+    /* 8b. Initialize the SFLP algorithm (self-clearing request bit) */
+    imu_embed_write_reg(LSM6DSV16X_EMB_FUNC_INIT_A,
+                        LSM6DSV16X_SFLP_GAME_INIT);
+
+    /* 8c. SFLP game ODR = 60 Hz (RMW: reserved must-be-1 bits 5/1/0) */
+    imu_embed_rmw_reg(LSM6DSV16X_SFLP_ODR,
+                      LSM6DSV16X_SFLP_ODR_MASK,
+                      IMU_SFLP_ODR_VAL);
+
+    /* 8d. Batch SFLP game rotation vector into the FIFO */
     imu_embed_write_reg(LSM6DSV16X_EMB_FUNC_FIFO_EN_A,
                         LSM6DSV16X_SFLP_GAME_FIFO_EN);
 
     /* 9. FIFO_CTRL4: FIFO continuous mode */
     imu_write_reg(LSM6DSV16X_FIFO_CTRL4,
                   LSM6DSV16X_FIFO_MODE_CONTINUOUS);
+
+    /* Readback — verify that the writes took effect */
+    imu_set_cfg_readback(
+        imu_read_reg(LSM6DSV16X_CTRL3),
+        imu_read_reg(LSM6DSV16X_CTRL1_XL),
+        imu_read_reg(LSM6DSV16X_CTRL2_G)
+    );
 
     imu_set_ready(1);
 
@@ -217,6 +283,26 @@ bool lsm6dsv16x_init(void)
 /* ====================================================================
  *  Data synchronisation — Proxy → Shadow Register
  * ==================================================================== */
+
+/*
+ *  sync_status_from_device: read STATUS_REG (0x1E) → shadow register.
+ *  Raw byte holds the data-ready flags: XLDA|GDA|TDA.
+ *  No return value — Client reads the shadow register.
+ *  Bus failure leaves the previous shadow value untouched.
+ */
+void lsm6dsv16x_sync_status_from_device(void)
+{
+    if (!imu_is_ready()) {
+        return;
+    }
+
+    uint8_t status = 0;
+    if (imu_read_burst(LSM6DSV16X_STATUS_REG, &status, 1)) {
+        imu_set_status(status);
+    } else {
+        imu_inc_bus_err();
+    }
+}
 
 /*
  *  Read raw accel + gyro + temp → shadow register.
@@ -231,6 +317,8 @@ void lsm6dsv16x_sync_raw_sensors(void)
     if (imu_read_burst(LSM6DSV16X_OUT_TEMP_L, buf, 2)) {
         raw = (int16_t)(((uint16_t)buf[1] << 8) | buf[0]);
         imu_set_temp(raw);
+    } else {
+        imu_inc_bus_err();
     }
 
     /* Gyroscope: 6 bytes starting at OUTX_L_G */
@@ -239,6 +327,8 @@ void lsm6dsv16x_sync_raw_sensors(void)
         imu_set_gyro(raw,
                      (int16_t)(((uint16_t)buf[3] << 8) | buf[2]),
                      (int16_t)(((uint16_t)buf[5] << 8) | buf[4]));
+    } else {
+        imu_inc_bus_err();
     }
 
     /* Accelerometer: 6 bytes starting at OUTX_L_A */
@@ -247,6 +337,8 @@ void lsm6dsv16x_sync_raw_sensors(void)
         imu_set_accel(raw,
                       (int16_t)(((uint16_t)buf[3] << 8) | buf[2]),
                       (int16_t)(((uint16_t)buf[5] << 8) | buf[4]));
+    } else {
+        imu_inc_bus_err();
     }
 
     imu_inc_sample_count();
@@ -312,8 +404,9 @@ bool lsm6dsv16x_sync_sflp_quaternion(void)
 
 /*
  *  sync_imu_from_device — top-level sync entry point.
- *  1. Pull raw accel + gyro + temp.
- *  2. Drain SFLP quaternion entries from FIFO.
+ *  1. Pull STATUS_REG (data-ready flags).
+ *  2. Pull raw accel + gyro + temp.
+ *  3. Drain SFLP quaternion entries from FIFO.
  *
  *  Call this periodically (e.g. every 10 ms) from a FreeRTOS task.
  */
@@ -322,6 +415,8 @@ void lsm6dsv16x_sync_from_device(void)
     if (!imu_is_ready()) {
         return;
     }
+
+    lsm6dsv16x_sync_status_from_device();
 
     lsm6dsv16x_sync_raw_sensors();
 

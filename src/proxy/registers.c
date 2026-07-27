@@ -140,6 +140,23 @@ struct Lsm6dsv16xReg {
     /* total sample count since init */
     uint32_t sample_count;
 
+    /* WHO_AM_I byte read during init (0x70 = genuine LSM6DSV16X) */
+    uint8_t whoami;
+
+    /* init result: 0 = OK, 1 = WHO_AM_I mismatch, 2 = BOOT bit timeout */
+    uint8_t init_err;
+
+    /* last STATUS_REG (0x1E) raw byte: XLDA|GDA|TDA data-ready flags */
+    uint8_t status_raw;
+
+    /* readback of config registers after init (verify writes took effect) */
+    uint8_t cfg_ctrl3;     /* CTRL3 (0x12): should be 0x44 (IF_INC|BDU) */
+    uint8_t cfg_ctrl1_xl;  /* CTRL1_XL (0x10): should be 0x08 (240Hz HP) */
+    uint8_t cfg_ctrl2_g;   /* CTRL2_G (0x11): should be 0x08 (240Hz HP) */
+
+    /* failed I2C transfer counter during periodic sync */
+    uint32_t bus_err;
+
     /* ready flag: set by Proxy after successful init + first read */
     uint8_t ready;
 };
@@ -166,6 +183,16 @@ int16_t  imu_get_temp(void)            { return g_lsm6dsv16x_reg.temp; }
 uint32_t imu_get_timestamp_ms(void)    { return g_lsm6dsv16x_reg.timestamp_ms; }
 uint32_t imu_get_sample_count(void)    { return g_lsm6dsv16x_reg.sample_count; }
 uint8_t  imu_is_ready(void)            { return g_lsm6dsv16x_reg.ready; }
+uint8_t  imu_get_whoami(void)          { return g_lsm6dsv16x_reg.whoami; }
+uint8_t  imu_get_init_err(void)        { return g_lsm6dsv16x_reg.init_err; }
+uint32_t imu_get_bus_err(void)         { return g_lsm6dsv16x_reg.bus_err; }
+uint8_t  imu_get_cfg_ctrl3(void)       { return g_lsm6dsv16x_reg.cfg_ctrl3; }
+uint8_t  imu_get_cfg_ctrl1_xl(void)    { return g_lsm6dsv16x_reg.cfg_ctrl1_xl; }
+uint8_t  imu_get_cfg_ctrl2_g(void)     { return g_lsm6dsv16x_reg.cfg_ctrl2_g; }
+uint8_t  imu_get_status_raw(void)      { return g_lsm6dsv16x_reg.status_raw; }
+uint8_t  imu_get_xlda(void)            { return g_lsm6dsv16x_reg.status_raw & LSM6DSV16X_XLDA; }
+uint8_t  imu_get_gda(void)             { return g_lsm6dsv16x_reg.status_raw & LSM6DSV16X_GDA; }
+uint8_t  imu_get_tda(void)             { return g_lsm6dsv16x_reg.status_raw & LSM6DSV16X_TDA; }
 
 /* ── Write access (Proxy only) ── */
 
@@ -195,6 +222,16 @@ void imu_set_temp(int16_t temp)               { g_lsm6dsv16x_reg.temp = temp; }
 void imu_set_timestamp_ms(uint32_t ts)         { g_lsm6dsv16x_reg.timestamp_ms = ts; }
 void imu_inc_sample_count(void)                { g_lsm6dsv16x_reg.sample_count++; }
 void imu_set_ready(uint8_t ready)             { g_lsm6dsv16x_reg.ready = ready; }
+void imu_set_whoami(uint8_t whoami)           { g_lsm6dsv16x_reg.whoami = whoami; }
+void imu_set_init_err(uint8_t err)            { g_lsm6dsv16x_reg.init_err = err; }
+void imu_inc_bus_err(void)                    { g_lsm6dsv16x_reg.bus_err++; }
+void imu_set_cfg_readback(uint8_t c3, uint8_t c1, uint8_t c2)
+{
+    g_lsm6dsv16x_reg.cfg_ctrl3   = c3;
+    g_lsm6dsv16x_reg.cfg_ctrl1_xl = c1;
+    g_lsm6dsv16x_reg.cfg_ctrl2_g  = c2;
+}
+void imu_set_status(uint8_t status_raw)       { g_lsm6dsv16x_reg.status_raw = status_raw; }
 
 // =====================================================================
 //  StatusReg accessors  (unchanged)

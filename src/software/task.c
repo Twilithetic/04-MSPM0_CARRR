@@ -118,16 +118,33 @@ void vLoggerTask(void *pvParameters)
     i2c_scan_print_results();
 
     for (;;) {
-        char buf[96];
+        char buf[200];
         unsigned long ticks = xTaskGetTickCount();
         unsigned long secs  = ticks / 1000;
         unsigned long ms    = ticks % 1000;
 
         int n = snprintf(buf, sizeof(buf),
-                         "[%lu.%03lus] B:%lu G:%lu | IMU q:%d %d %d %d | g:%d %d %d | a:%d %d %d\r\n",
+                         "[%lu.%03lus] B:%lu G:%lu"
+                         " | IMU who:0x%02X rdy:%u ie:%u"
+                         " cfg:C3=0x%02X C1=0x%02X C2=0x%02X be:%lu"
+                         " st:0x%02X X%uG%uT%u"
+                         " | q:%d %d %d %d"
+                         " | g:%d %d %d"
+                         " | a:%d %d %d\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
+                         (unsigned int) imu_get_whoami(),
+                         (unsigned int) imu_is_ready(),
+                         (unsigned int) imu_get_init_err(),
+                         (unsigned int) imu_get_cfg_ctrl3(),
+                         (unsigned int) imu_get_cfg_ctrl1_xl(),
+                         (unsigned int) imu_get_cfg_ctrl2_g(),
+                         (unsigned long) imu_get_bus_err(),
+                         (unsigned int) imu_get_status_raw(),
+                         (unsigned int) (imu_get_xlda() ? 1 : 0),
+                         (unsigned int) (imu_get_gda()  ? 1 : 0),
+                         (unsigned int) (imu_get_tda()  ? 1 : 0),
                          (int) imu_get_qw(), (int) imu_get_qx(),
                          (int) imu_get_qy(), (int) imu_get_qz(),
                          (int) imu_get_gx(), (int) imu_get_gy(), (int) imu_get_gz(),
