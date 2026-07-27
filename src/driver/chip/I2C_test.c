@@ -21,8 +21,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-/* ---- Global I2C handle (initialized once) ---- */
-static I2C_Handle g_i2cHandle = NULL;
+/* ---- Global I2C handle — shared with LSM6DSV16X.c via extern ---- */
+I2C_Handle g_i2cHandle = NULL;
 
 /* ====================================================================
  *  Public API

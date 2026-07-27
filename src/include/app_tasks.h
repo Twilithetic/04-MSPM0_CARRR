@@ -12,6 +12,7 @@
 void vBlueTask(void *pvParameters);
 void vGreenTask(void *pvParameters);
 void vI2CScanTask(void *pvParameters);
+void vImuPollTask(void *pvParameters);
 void vLoggerTask(void *pvParameters);
 
 #endif /* APP_TASKS_H */

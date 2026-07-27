@@ -49,6 +49,7 @@ const C_FILES: &[(&str, &str)] = &[
     ("registers.c",    "src/proxy/registers.c"),
     ("I2C_test.c",     "src/driver/chip/I2C_test.c"),
     ("ti_drivers_i2c_config.c", "src/driver/chip/ti_drivers_i2c_config.c"),
+    ("LSM6DSV16X.c",    "src/driver/board/LSM6DSV16X.c"),
 
     // ---- TI Drivers DPL (FreeRTOS porting layer) ----
     ("HwiPMSPM0_freertos.c", "C:/ti/mspm0_sdk_2_10_00_04/kernel/freertos/dpl/HwiPMSPM0_freertos.c"),
@@ -70,9 +71,6 @@ const C_FILES: &[(&str, &str)] = &[
     ("port.c",          "rtos/FreeRTOS/portable/TI_ARM_CLANG/ARM_CM0/port.c"),
     ("portasm.c",       "rtos/FreeRTOS/portable/TI_ARM_CLANG/ARM_CM0/portasm.c"),
     ("heap_4.c",        "rtos/FreeRTOS/MemMang/heap_4.c"),
-
-    // ---- POSIX thread-local storage (needed by vTaskDelete) ----
-    ("PTLS.c", "rtos/posix/PTLS.c"),
 ];
 
 const OBJS: &[&str] = &[
@@ -86,12 +84,12 @@ const OBJS: &[&str] = &[
     "registers",
     "I2C_test",
     "ti_drivers_i2c_config",
+    "LSM6DSV16X",
     "HwiPMSPM0_freertos",
     "SemaphoreP_freertos",
     "ClockP_freertos",
     "DebugP_freertos",
     "SystemP_freertos",
-    "PTLS",
     "tasks",
     "queue",
     "list",

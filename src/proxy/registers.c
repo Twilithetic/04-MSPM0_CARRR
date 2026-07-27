@@ -9,6 +9,7 @@
 #include "include/status_reg.h"
 #include "include/led_reg.h"
 #include "include/i2c_scanner_reg.h"
+#include "include/lsm6dsv16x_reg.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -115,6 +116,85 @@ void i2c_scan_set_ack(uint8_t addr, bool present)
     if (addr >= I2C_SCAN_ADDR_RANGE) { return; }
     g_i2c_scan_reg.ack_map[addr] = present;
 }
+
+// =====================================================================
+//  Lsm6dsv16xReg  — IMU shadow register
+// =====================================================================
+
+struct Lsm6dsv16xReg {
+    /* SFLP game rotation vector — quaternion (fixed-point *61/1000) */
+    int16_t qw, qx, qy, qz;
+
+    /* raw gyroscope (mdps) — sync from FIFO SFLP */
+    int16_t gx, gy, gz;
+
+    /* raw accelerometer (mg) — sync from OUTX_L_A */
+    int16_t ax, ay, az;
+
+    /* temperature in 0.1 °C — sync from OUT_TEMP_L */
+    int16_t temp;
+
+    /* timestamp of last successful sync (ms since boot) */
+    uint32_t timestamp_ms;
+
+    /* total sample count since init */
+    uint32_t sample_count;
+
+    /* ready flag: set by Proxy after successful init + first read */
+    uint8_t ready;
+};
+
+Lsm6dsv16xReg g_lsm6dsv16x_reg = {0};
+
+/* ── Read access ── */
+
+int16_t  imu_get_qw(void)              { return g_lsm6dsv16x_reg.qw; }
+int16_t  imu_get_qx(void)              { return g_lsm6dsv16x_reg.qx; }
+int16_t  imu_get_qy(void)              { return g_lsm6dsv16x_reg.qy; }
+int16_t  imu_get_qz(void)              { return g_lsm6dsv16x_reg.qz; }
+
+int16_t  imu_get_gx(void)              { return g_lsm6dsv16x_reg.gx; }
+int16_t  imu_get_gy(void)              { return g_lsm6dsv16x_reg.gy; }
+int16_t  imu_get_gz(void)              { return g_lsm6dsv16x_reg.gz; }
+
+int16_t  imu_get_ax(void)              { return g_lsm6dsv16x_reg.ax; }
+int16_t  imu_get_ay(void)              { return g_lsm6dsv16x_reg.ay; }
+int16_t  imu_get_az(void)              { return g_lsm6dsv16x_reg.az; }
+
+int16_t  imu_get_temp(void)            { return g_lsm6dsv16x_reg.temp; }
+
+uint32_t imu_get_timestamp_ms(void)    { return g_lsm6dsv16x_reg.timestamp_ms; }
+uint32_t imu_get_sample_count(void)    { return g_lsm6dsv16x_reg.sample_count; }
+uint8_t  imu_is_ready(void)            { return g_lsm6dsv16x_reg.ready; }
+
+/* ── Write access (Proxy only) ── */
+
+void imu_set_quaternion(int16_t qw, int16_t qx, int16_t qy, int16_t qz)
+{
+    g_lsm6dsv16x_reg.qw = qw;
+    g_lsm6dsv16x_reg.qx = qx;
+    g_lsm6dsv16x_reg.qy = qy;
+    g_lsm6dsv16x_reg.qz = qz;
+}
+
+void imu_set_gyro(int16_t gx, int16_t gy, int16_t gz)
+{
+    g_lsm6dsv16x_reg.gx = gx;
+    g_lsm6dsv16x_reg.gy = gy;
+    g_lsm6dsv16x_reg.gz = gz;
+}
+
+void imu_set_accel(int16_t ax, int16_t ay, int16_t az)
+{
+    g_lsm6dsv16x_reg.ax = ax;
+    g_lsm6dsv16x_reg.ay = ay;
+    g_lsm6dsv16x_reg.az = az;
+}
+
+void imu_set_temp(int16_t temp)               { g_lsm6dsv16x_reg.temp = temp; }
+void imu_set_timestamp_ms(uint32_t ts)         { g_lsm6dsv16x_reg.timestamp_ms = ts; }
+void imu_inc_sample_count(void)                { g_lsm6dsv16x_reg.sample_count++; }
+void imu_set_ready(uint8_t ready)             { g_lsm6dsv16x_reg.ready = ready; }
 
 // =====================================================================
 //  StatusReg accessors  (unchanged)
