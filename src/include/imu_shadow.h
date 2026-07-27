@@ -56,13 +56,9 @@ uint32_t imu_get_sample_count(void);
 /** Get quaternion rate (samples/second), computed from delta since last call */
 uint16_t imu_get_qps(void);
 
-/** Yaw angle (degrees * 100) */
+/** Yaw/Pitch/Roll angles from quaternion (*100 to keep 2 decimal places as int) */
 int16_t imu_get_yaw_deg100(void);
-
-/** Pitch angle (degrees * 100) */
 int16_t imu_get_pitch_deg100(void);
-
-/** Roll angle (degrees * 100) */
 int16_t imu_get_roll_deg100(void);
 
 /** Nonzero if IMU initialised OK */
