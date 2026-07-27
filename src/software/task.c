@@ -119,14 +119,12 @@ void vLoggerTask(void *pvParameters)
         int16_t  roll  = imu_get_roll_deg100();
 
         int n = snprintf(buf, sizeof(buf),
-                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u yaw:%7.2f° pitch:%7.2f° roll:%7.2f°\r\n",
+                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u yaw:%7.2f°\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
                          (unsigned int) qps,
-                         (double) yaw   / 100.0,
-                         (double) pitch / 100.0,
-                         (double) roll  / 100.0);
+                         (double) yaw   / 100.0);
 
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
