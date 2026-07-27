@@ -13,6 +13,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
+/* TX buffer size — shared between XDS110_cdc.c and callers */
+#define UART_TX_BUF_SIZE  256
+
 void uart_init(void);
 
 /// Non-blocking DMA TX.  Returns immediately; DMA sends in background.

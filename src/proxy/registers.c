@@ -149,10 +149,16 @@ struct Lsm6dsv16xReg {
     /* last STATUS_REG (0x1E) raw byte: XLDA|GDA|TDA data-ready flags */
     uint8_t status_raw;
 
-    /* readback of config registers after init (verify writes took effect) */
-    uint8_t cfg_ctrl3;     /* CTRL3 (0x12): should be 0x44 (IF_INC|BDU) */
-    uint8_t cfg_ctrl1_xl;  /* CTRL1_XL (0x10): should be 0x08 (240Hz HP) */
-    uint8_t cfg_ctrl2_g;   /* CTRL2_G (0x11): should be 0x08 (240Hz HP) */
+    /* readback of config registers (verify writes took effect) */
+    uint8_t cfg_ctrl3_boot; /* CTRL3 right after boot-wait loop — BOOT should be 0 */
+    uint8_t cfg_ctrl3;     /* CTRL3 (0x12) after core init: should be 0x44 (IF_INC|BDU) */
+    uint8_t cfg_ctrl1_xl;  /* CTRL1_XL (0x10) after core init, before SFLP: 0x08 */
+    uint8_t cfg_ctrl2_g;   /* CTRL2_G (0x11) after core init, before SFLP: 0x08 */
+    uint8_t cfg_post_ctrl1; /* CTRL1_XL after SFLP + FIFO: should still be 0x08 */
+    uint8_t cfg_post_ctrl2; /* CTRL2_G  after SFLP + FIFO: should still be 0x08 */
+    uint8_t cfg_post_ctrl8; /* CTRL8_XL after SFLP + FIFO: should be 0x03 */
+    uint8_t cfg_post_ctrl6; /* CTRL6_G  after SFLP + FIFO: should be 0x04 */
+    uint8_t cfg_fca;        /* FUNC_CFG_ACCESS (0x01) after init: bit2=1 = stuck EMBED */
 
     /* failed I2C transfer counter during periodic sync */
     uint32_t bus_err;
@@ -189,6 +195,12 @@ uint32_t imu_get_bus_err(void)         { return g_lsm6dsv16x_reg.bus_err; }
 uint8_t  imu_get_cfg_ctrl3(void)       { return g_lsm6dsv16x_reg.cfg_ctrl3; }
 uint8_t  imu_get_cfg_ctrl1_xl(void)    { return g_lsm6dsv16x_reg.cfg_ctrl1_xl; }
 uint8_t  imu_get_cfg_ctrl2_g(void)     { return g_lsm6dsv16x_reg.cfg_ctrl2_g; }
+uint8_t  imu_get_cfg_post_ctrl1(void)  { return g_lsm6dsv16x_reg.cfg_post_ctrl1; }
+uint8_t  imu_get_cfg_post_ctrl2(void)  { return g_lsm6dsv16x_reg.cfg_post_ctrl2; }
+uint8_t  imu_get_cfg_post_ctrl8(void)  { return g_lsm6dsv16x_reg.cfg_post_ctrl8; }
+uint8_t  imu_get_cfg_post_ctrl6(void)  { return g_lsm6dsv16x_reg.cfg_post_ctrl6; }
+uint8_t  imu_get_cfg_fca(void)         { return g_lsm6dsv16x_reg.cfg_fca; }
+uint8_t  imu_get_cfg_ctrl3_boot(void)  { return g_lsm6dsv16x_reg.cfg_ctrl3_boot; }
 uint8_t  imu_get_status_raw(void)      { return g_lsm6dsv16x_reg.status_raw; }
 uint8_t  imu_get_xlda(void)            { return g_lsm6dsv16x_reg.status_raw & LSM6DSV16X_XLDA; }
 uint8_t  imu_get_gda(void)             { return g_lsm6dsv16x_reg.status_raw & LSM6DSV16X_GDA; }
@@ -231,6 +243,15 @@ void imu_set_cfg_readback(uint8_t c3, uint8_t c1, uint8_t c2)
     g_lsm6dsv16x_reg.cfg_ctrl1_xl = c1;
     g_lsm6dsv16x_reg.cfg_ctrl2_g  = c2;
 }
+void imu_set_cfg_post_sflp(uint8_t c1, uint8_t c2, uint8_t c8, uint8_t c6)
+{
+    g_lsm6dsv16x_reg.cfg_post_ctrl1 = c1;
+    g_lsm6dsv16x_reg.cfg_post_ctrl2 = c2;
+    g_lsm6dsv16x_reg.cfg_post_ctrl8 = c8;
+    g_lsm6dsv16x_reg.cfg_post_ctrl6 = c6;
+}
+void imu_set_cfg_ctrl3_boot(uint8_t val)   { g_lsm6dsv16x_reg.cfg_ctrl3_boot = val; }
+void imu_set_cfg_fca(uint8_t val)       { g_lsm6dsv16x_reg.cfg_fca = val; }
 void imu_set_status(uint8_t status_raw)       { g_lsm6dsv16x_reg.status_raw = status_raw; }
 
 // =====================================================================

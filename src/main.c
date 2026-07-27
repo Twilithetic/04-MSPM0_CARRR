@@ -57,7 +57,7 @@ int main(void)
                           NULL,        3,          NULL);
     configASSERT(xReturn == pdPASS);
 
-    xReturn = xTaskCreate(vLoggerTask, "Logger",   configMINIMAL_STACK_SIZE * 3,
+    xReturn = xTaskCreate(vLoggerTask, "Logger",   configMINIMAL_STACK_SIZE * 4,
                           NULL,        1,          NULL);
     configASSERT(xReturn == pdPASS);
 

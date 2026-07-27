@@ -225,6 +225,7 @@ bool lsm6dsv16x_init(void)
                 return false;
             }
         }
+        imu_set_cfg_ctrl3_boot(imu_read_reg(LSM6DSV16X_CTRL3));
     }
 
     /* 3. CTRL3: auto-increment + block data update */
@@ -238,6 +239,13 @@ bool lsm6dsv16x_init(void)
     /* 5. CTRL2_G: gyro 240 Hz, HP mode */
     imu_write_reg(LSM6DSV16X_CTRL2_G,
                   IMU_ODR_GYRO);    /* bits 6:4 = 000 = HP, bits 3:0 = 240 Hz */
+
+    /* ── Readback #1: verify core config before embedded bank access ── */
+    imu_set_cfg_readback(
+        imu_read_reg(LSM6DSV16X_CTRL3),
+        imu_read_reg(LSM6DSV16X_CTRL1_XL),
+        imu_read_reg(LSM6DSV16X_CTRL2_G)
+    );
 
     /* 6. CTRL8_XL: accel ±16g */
     imu_write_reg(LSM6DSV16X_CTRL8_XL,
@@ -268,12 +276,14 @@ bool lsm6dsv16x_init(void)
     imu_write_reg(LSM6DSV16X_FIFO_CTRL4,
                   LSM6DSV16X_FIFO_MODE_CONTINUOUS);
 
-    /* Readback — verify that the writes took effect */
-    imu_set_cfg_readback(
-        imu_read_reg(LSM6DSV16X_CTRL3),
+    /* ── Readback #2: verify registers survived embedded-bank access ── */
+    imu_set_cfg_post_sflp(
         imu_read_reg(LSM6DSV16X_CTRL1_XL),
-        imu_read_reg(LSM6DSV16X_CTRL2_G)
+        imu_read_reg(LSM6DSV16X_CTRL2_G),
+        imu_read_reg(LSM6DSV16X_CTRL8_XL),
+        imu_read_reg(LSM6DSV16X_CTRL6_G)
     );
+    imu_set_cfg_fca(imu_read_reg(LSM6DSV16X_FUNC_CFG_ACCESS));
 
     imu_set_ready(1);
 

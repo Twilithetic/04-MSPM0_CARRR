@@ -306,9 +306,15 @@ uint8_t  imu_get_init_err(void);
 uint32_t imu_get_bus_err(void);
 
 /** readback of config registers after init (verify writes took effect) */
+uint8_t  imu_get_cfg_ctrl3_boot(void);   /* CTRL3 right after boot-wait loop */
 uint8_t  imu_get_cfg_ctrl3(void);
-uint8_t  imu_get_cfg_ctrl1_xl(void);
-uint8_t  imu_get_cfg_ctrl2_g(void);
+uint8_t  imu_get_cfg_ctrl1_xl(void);    /* before SFLP */
+uint8_t  imu_get_cfg_ctrl2_g(void);     /* before SFLP */
+uint8_t  imu_get_cfg_post_ctrl1(void);  /* after SFLP */
+uint8_t  imu_get_cfg_post_ctrl2(void);  /* after SFLP */
+uint8_t  imu_get_cfg_post_ctrl8(void);
+uint8_t  imu_get_cfg_post_ctrl6(void);
+uint8_t  imu_get_cfg_fca(void);         /* FUNC_CFG_ACCESS (0x01) after init: bit2=stuck EMBED */
 
 /** last STATUS_REG (0x1E) raw byte — sync_from_device updates */
 uint8_t  imu_get_status_raw(void);
@@ -331,6 +337,9 @@ void imu_set_whoami(uint8_t whoami);
 void imu_set_init_err(uint8_t err);
 void imu_inc_bus_err(void);
 void imu_set_cfg_readback(uint8_t ctrl3, uint8_t ctrl1_xl, uint8_t ctrl2_g);
+void imu_set_cfg_post_sflp(uint8_t ctrl1_xl, uint8_t ctrl2_g, uint8_t ctrl8_xl, uint8_t ctrl6_g);
+void imu_set_cfg_ctrl3_boot(uint8_t val);
+void imu_set_cfg_fca(uint8_t val);
 void imu_set_status(uint8_t status_raw);
 
 #ifdef __cplusplus

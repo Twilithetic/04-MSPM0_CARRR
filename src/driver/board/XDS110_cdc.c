@@ -27,7 +27,7 @@
 #define TX_CHAN_ID      DMA_CH0_CHAN_ID    /* 0 */
 
 /* TX buffer for DMA (persistent — DMA reads from it asynchronously) */
-#define TX_BUF_SIZE     128
+#define TX_BUF_SIZE     UART_TX_BUF_SIZE    /* from XDS110_cdc.h */
 static uint8_t  g_tx_buf[TX_BUF_SIZE];
 static volatile bool g_tx_busy = false;
 static SemaphoreHandle_t g_tx_done_sem = NULL;

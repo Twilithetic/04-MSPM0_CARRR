@@ -118,7 +118,7 @@ void vLoggerTask(void *pvParameters)
     i2c_scan_print_results();
 
     for (;;) {
-        char buf[200];
+        char buf[UART_TX_BUF_SIZE];
         unsigned long ticks = xTaskGetTickCount();
         unsigned long secs  = ticks / 1000;
         unsigned long ms    = ticks % 1000;
@@ -126,7 +126,9 @@ void vLoggerTask(void *pvParameters)
         int n = snprintf(buf, sizeof(buf),
                          "[%lu.%03lus] B:%lu G:%lu"
                          " | IMU who:0x%02X rdy:%u ie:%u"
-                         " cfg:C3=0x%02X C1=0x%02X C2=0x%02X be:%lu"
+                         " cfg:B3=0x%02X C3=0x%02X C1=0x%02X C2=0x%02X"
+                         " post:C1=0x%02X C2=0x%02X C8=0x%02X C6=0x%02X"
+                         " fca=0x%02X be:%lu"
                          " st:0x%02X X%uG%uT%u"
                          " | q:%d %d %d %d"
                          " | g:%d %d %d"
@@ -137,9 +139,15 @@ void vLoggerTask(void *pvParameters)
                          (unsigned int) imu_get_whoami(),
                          (unsigned int) imu_is_ready(),
                          (unsigned int) imu_get_init_err(),
+                         (unsigned int) imu_get_cfg_ctrl3_boot(),
                          (unsigned int) imu_get_cfg_ctrl3(),
                          (unsigned int) imu_get_cfg_ctrl1_xl(),
                          (unsigned int) imu_get_cfg_ctrl2_g(),
+                         (unsigned int) imu_get_cfg_post_ctrl1(),
+                         (unsigned int) imu_get_cfg_post_ctrl2(),
+                         (unsigned int) imu_get_cfg_post_ctrl8(),
+                         (unsigned int) imu_get_cfg_post_ctrl6(),
+                         (unsigned int) imu_get_cfg_fca(),
                          (unsigned long) imu_get_bus_err(),
                          (unsigned int) imu_get_status_raw(),
                          (unsigned int) (imu_get_xlda() ? 1 : 0),
