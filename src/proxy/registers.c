@@ -160,6 +160,14 @@ struct Lsm6dsv16xReg {
     uint8_t cfg_post_ctrl6; /* CTRL6_G  after SFLP + FIFO: should be 0x04 */
     uint8_t cfg_fca;        /* FUNC_CFG_ACCESS (0x01) after init: bit2=1 = stuck EMBED */
 
+    /* SFLP enable/status diagnostics */
+    uint8_t sflp_en_a;         /* EMB_FUNC_EN_A readback */
+    uint8_t sflp_init_a;       /* EMB_FUNC_INIT_A readback (self-clears: 0=init done) */
+    uint8_t sflp_exec_status;  /* EMB_FUNC_EXEC_STATUS: ENDOP=bit0 */
+    uint8_t sflp_fifo_en_a;    /* EMB_FUNC_FIFO_EN_A readback */
+    uint8_t fifo_status1;      /* FIFO_STATUS1 — number of unread entries LSB */
+    uint8_t fifo_status2;      /* FIFO_STATUS2 — top bit + empty/overflow flags */
+
     /* failed I2C transfer counter during periodic sync */
     uint32_t bus_err;
 
@@ -200,6 +208,12 @@ uint8_t  imu_get_cfg_post_ctrl2(void)  { return g_lsm6dsv16x_reg.cfg_post_ctrl2;
 uint8_t  imu_get_cfg_post_ctrl8(void)  { return g_lsm6dsv16x_reg.cfg_post_ctrl8; }
 uint8_t  imu_get_cfg_post_ctrl6(void)  { return g_lsm6dsv16x_reg.cfg_post_ctrl6; }
 uint8_t  imu_get_cfg_fca(void)         { return g_lsm6dsv16x_reg.cfg_fca; }
+uint8_t  imu_get_sflp_en_a(void)       { return g_lsm6dsv16x_reg.sflp_en_a; }
+uint8_t  imu_get_sflp_init_a(void)     { return g_lsm6dsv16x_reg.sflp_init_a; }
+uint8_t  imu_get_sflp_exec_status(void){ return g_lsm6dsv16x_reg.sflp_exec_status; }
+uint8_t  imu_get_sflp_fifo_en_a(void)  { return g_lsm6dsv16x_reg.sflp_fifo_en_a; }
+uint8_t  imu_get_fifo_status1(void)    { return g_lsm6dsv16x_reg.fifo_status1; }
+uint8_t  imu_get_fifo_status2(void)    { return g_lsm6dsv16x_reg.fifo_status2; }
 uint8_t  imu_get_cfg_ctrl3_boot(void)  { return g_lsm6dsv16x_reg.cfg_ctrl3_boot; }
 uint8_t  imu_get_status_raw(void)      { return g_lsm6dsv16x_reg.status_raw; }
 uint8_t  imu_get_xlda(void)            { return g_lsm6dsv16x_reg.status_raw & LSM6DSV16X_XLDA; }
@@ -252,6 +266,15 @@ void imu_set_cfg_post_sflp(uint8_t c1, uint8_t c2, uint8_t c8, uint8_t c6)
 }
 void imu_set_cfg_ctrl3_boot(uint8_t val)   { g_lsm6dsv16x_reg.cfg_ctrl3_boot = val; }
 void imu_set_cfg_fca(uint8_t val)       { g_lsm6dsv16x_reg.cfg_fca = val; }
+void imu_set_sflp_diag(uint8_t en_a, uint8_t init_a, uint8_t exec, uint8_t fifo_ena, uint8_t fs1, uint8_t fs2)
+{
+    g_lsm6dsv16x_reg.sflp_en_a        = en_a;
+    g_lsm6dsv16x_reg.sflp_init_a      = init_a;
+    g_lsm6dsv16x_reg.sflp_exec_status  = exec;
+    g_lsm6dsv16x_reg.sflp_fifo_en_a   = fifo_ena;
+    g_lsm6dsv16x_reg.fifo_status1     = fs1;
+    g_lsm6dsv16x_reg.fifo_status2     = fs2;
+}
 void imu_set_status(uint8_t status_raw)       { g_lsm6dsv16x_reg.status_raw = status_raw; }
 
 // =====================================================================

@@ -256,18 +256,83 @@ bool lsm6dsv16x_init(void)
                   IMU_FS_GYRO);     /* bits 3:0 = 0x04 = ±2000 dps */
 
     /*
-     * NOTE: SFLP (quaternion) init is intentionally *disabled* for now.
-     * The embedded-bank register overlay (FUNC_CFG_ACCESS.EMB_FUNC_REG_ACCESS)
-     * was zeroing out every main-page control register after returning to
-     * the main bank — root cause of the data=0 symptom.  We'll bring SFLP
-     * back after the bank-switching mechanism is understood for this chip
-     * (likely needs SHUB_MASTER_EN or a different access method).
+     * 8. Embedded bank: SFLP game rotation vector setup.
      *
-     * For now the sync path reads raw accel + gyro + temp only.
-     * FIFO is left in bypass mode (default).
+     * Per AN5804 §3.3 (SFLP enable sequence):
+     *   1. EMB_FUNC_EN_A.SFLP_GAME_EN = 1
+     *   2. Set SFLP_ODR  (must come BEFORE SFLP_GAME_INIT)
+     *   3. EMB_FUNC_INIT_A.SFLP_GAME_INIT = 1  (self-clearing)
+     *   4. EMB_FUNC_FIFO_EN_A.SFLP_GAME_FIFO_EN = 1
      *
-     * ── Readback #2: verify registers survived without SFLP ──
+     * WARNING: accessing the embedded page via FUNC_CFG_ACCESS.EMB_FUNC_REG_ACCESS
+     * zeroes main-page control registers on this chip.  The ODR and FS registers
+     * are re-applied AFTER the embedded cycle.  Do NOT interleave bank-switch
+     * operations with main-page reads/writes or the config will be silently lost.
      */
+
+    /* 8a. Enable the SFLP game algorithm processor */
+    imu_embed_write_reg(LSM6DSV16X_EMB_FUNC_EN_A,
+                        LSM6DSV16X_SFLP_GAME_EN);
+
+    /* 8b. SFLP game ODR = 60 Hz (RMW: reserved must-be-1 bits 5/1/0) */
+    imu_embed_rmw_reg(LSM6DSV16X_SFLP_ODR,
+                      LSM6DSV16X_SFLP_ODR_MASK,
+                      IMU_SFLP_ODR_VAL);
+
+    /* 8c. Kick the SFLP algorithm (self-clearing request bit) */
+    imu_embed_write_reg(LSM6DSV16X_EMB_FUNC_INIT_A,
+                        LSM6DSV16X_SFLP_GAME_INIT);
+
+    /* 8d. Batch SFLP game rotation vector into the FIFO */
+    imu_embed_write_reg(LSM6DSV16X_EMB_FUNC_FIFO_EN_A,
+                        LSM6DSV16X_SFLP_GAME_FIFO_EN);
+
+    /* 9. FIFO_CTRL4: FIFO continuous mode */
+    imu_write_reg(LSM6DSV16X_FIFO_CTRL4,
+                  LSM6DSV16X_FIFO_MODE_CONTINUOUS);
+
+    /*
+     * EVERY call to imu_set_bank() (enter/exit embed page via
+     * FUNC_CFG_ACCESS read-modify-write) silently zeroes main-page
+     * control registers on this chip.  The four imu_embed_* calls above
+     * each do one entry + one exit = 8 clears total.
+     *
+     * Therefore the main-page config MUST be re-applied as the *last*
+     * step before imu_set_ready().  Any readback of embedded registers
+     * also goes through bank entry/exit, so readback happens BEFORE
+     * this final restore and fixes the values of En/Init/Exec/FIFO_EN
+     * for the logger to print.
+     */
+
+    /* ── SFLP diag: read embed registers while we still have them ── */
+    {
+        uint8_t en_a, init_a, exec_s, fifo_ena;
+        imu_set_bank(BANK_EMBED);
+        en_a     = imu_read_reg(LSM6DSV16X_EMB_FUNC_EN_A);
+        init_a   = imu_read_reg(LSM6DSV16X_EMB_FUNC_INIT_A);
+        exec_s   = imu_read_reg(LSM6DSV16X_EMB_FUNC_EXEC_STATUS);
+        fifo_ena = imu_read_reg(LSM6DSV16X_EMB_FUNC_FIFO_EN_A);
+        imu_set_bank(BANK_MAIN);      /* ← zeros main-page regs again */
+        {
+            uint8_t fs1 = imu_read_reg(LSM6DSV16X_FIFO_STATUS1);
+            uint8_t fs2 = imu_read_reg(LSM6DSV16X_FIFO_STATUS2);
+            imu_set_sflp_diag(en_a, init_a, exec_s, fifo_ena, fs1, fs2);
+        }
+    }
+
+    /*
+     * ── FINAL: restore main-page configuration after ALL bank operations ──
+     *
+     * Guideline §4.6: all writes to main-page regs that must survive
+     * into the runtime must come after all FUNC_CFG_ACCESS bank writes.
+     */
+    imu_write_reg(LSM6DSV16X_CTRL1_XL, IMU_ODR_ACCEL);
+    imu_write_reg(LSM6DSV16X_CTRL2_G,  IMU_ODR_GYRO);
+    imu_write_reg(LSM6DSV16X_CTRL8_XL, IMU_FS_ACCEL);
+    imu_write_reg(LSM6DSV16X_CTRL6_G,  IMU_FS_GYRO);
+    imu_write_reg(LSM6DSV16X_CTRL3, LSM6DSV16X_IF_INC | LSM6DSV16X_BDU);
+
+    /* Verify the final restore stuck */
     imu_set_cfg_post_sflp(
         imu_read_reg(LSM6DSV16X_CTRL1_XL),
         imu_read_reg(LSM6DSV16X_CTRL2_G),

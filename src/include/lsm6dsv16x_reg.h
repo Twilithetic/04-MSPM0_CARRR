@@ -314,7 +314,13 @@ uint8_t  imu_get_cfg_post_ctrl1(void);  /* after SFLP */
 uint8_t  imu_get_cfg_post_ctrl2(void);  /* after SFLP */
 uint8_t  imu_get_cfg_post_ctrl8(void);
 uint8_t  imu_get_cfg_post_ctrl6(void);
-uint8_t  imu_get_cfg_fca(void);         /* FUNC_CFG_ACCESS (0x01) after init: bit2=stuck EMBED */
+uint8_t  imu_get_cfg_fca(void);         /* FUNC_CFG_ACCESS (0x01) after init */
+uint8_t  imu_get_sflp_en_a(void);       /* EMB_FUNC_EN_A readback */
+uint8_t  imu_get_sflp_init_a(void);     /* EMB_FUNC_INIT_A readback (self-clears) */
+uint8_t  imu_get_sflp_exec_status(void);/* EMB_FUNC_EXEC_STATUS: ENDOP check */
+uint8_t  imu_get_sflp_fifo_en_a(void);  /* EMB_FUNC_FIFO_EN_A readback */
+uint8_t  imu_get_fifo_status1(void);    /* FIFO unread entries LSB */
+uint8_t  imu_get_fifo_status2(void);    /* FIFO overflow/empty flags */
 
 /** last STATUS_REG (0x1E) raw byte — sync_from_device updates */
 uint8_t  imu_get_status_raw(void);
@@ -340,6 +346,8 @@ void imu_set_cfg_readback(uint8_t ctrl3, uint8_t ctrl1_xl, uint8_t ctrl2_g);
 void imu_set_cfg_post_sflp(uint8_t ctrl1_xl, uint8_t ctrl2_g, uint8_t ctrl8_xl, uint8_t ctrl6_g);
 void imu_set_cfg_ctrl3_boot(uint8_t val);
 void imu_set_cfg_fca(uint8_t val);
+void imu_set_sflp_diag(uint8_t en_a, uint8_t init_a, uint8_t exec,
+                       uint8_t fifo_ena, uint8_t fs1, uint8_t fs2);
 void imu_set_status(uint8_t status_raw);
 
 #ifdef __cplusplus

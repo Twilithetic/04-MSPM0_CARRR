@@ -129,7 +129,7 @@ void vLoggerTask(void *pvParameters)
                          " cfg:B3=0x%02X C3=0x%02X C1=0x%02X C2=0x%02X"
                          " post:C1=0x%02X C2=0x%02X C8=0x%02X C6=0x%02X"
                          " fca=0x%02X be:%lu"
-                         " st:0x%02X X%uG%uT%u"
+                         " SFLP:en=0x%02X in=0x%02X ex=0x%02X fi=0x%02X FIFO:%u/%u"
                          " | q:%d %d %d %d"
                          " | g:%d %d %d"
                          " | a:%d %d %d\r\n",
@@ -149,10 +149,12 @@ void vLoggerTask(void *pvParameters)
                          (unsigned int) imu_get_cfg_post_ctrl6(),
                          (unsigned int) imu_get_cfg_fca(),
                          (unsigned long) imu_get_bus_err(),
-                         (unsigned int) imu_get_status_raw(),
-                         (unsigned int) (imu_get_xlda() ? 1 : 0),
-                         (unsigned int) (imu_get_gda()  ? 1 : 0),
-                         (unsigned int) (imu_get_tda()  ? 1 : 0),
+                         (unsigned int) imu_get_sflp_en_a(),
+                         (unsigned int) imu_get_sflp_init_a(),
+                         (unsigned int) imu_get_sflp_exec_status(),
+                         (unsigned int) imu_get_sflp_fifo_en_a(),
+                         (unsigned int) imu_get_fifo_status1(),
+                         (unsigned int) imu_get_fifo_status2(),
                          (int) imu_get_qw(), (int) imu_get_qx(),
                          (int) imu_get_qy(), (int) imu_get_qz(),
                          (int) imu_get_gx(), (int) imu_get_gy(), (int) imu_get_gz(),
