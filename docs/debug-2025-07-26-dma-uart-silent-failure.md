@@ -1,5 +1,5 @@
 # 🐛 Bug 记录：DMA UART 静默失效 — FreeRTOS 堆耗尽
-
+提示词： 真的哎 加大了堆就能发了！把这次找bug的经历 记录下来 写成一个markdown 供后来者观看的历史那种！
 > **日期**: 2026-07-26  
 > **平台**: MSPM0G3507 + FreeRTOS + TI DriverLib  
 > **关联 Commit**: 可工作基线 `b061dcb` → 当前 `b061dcb` + 未提交改动  
