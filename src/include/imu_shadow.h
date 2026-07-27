@@ -20,9 +20,9 @@ extern "C" {
 #endif
 
 /* ---- Opaque type ---- */
-typedef struct ImuShadow ImuShadow;
+typedef struct LSM6DSV16XReg LSM6DSV16XReg;
 
-extern ImuShadow g_imu_shadow;
+extern LSM6DSV16XReg g_lsm6dsv16x_reg;
 
 /* ================================================================
  *  Read access (Client / Logger)

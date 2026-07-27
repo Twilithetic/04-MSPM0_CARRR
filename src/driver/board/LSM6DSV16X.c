@@ -12,11 +12,69 @@
  *    LSM6DSV16X 7-bit address: auto-detected (0x6A or 0x6B).
  */
 
-#include "include/lsm6dsv16x_platform.h"  /* g_imu_ctx, ST official reg.h */
+#include "include/lsm6dsv16x_reg.h"       /* ST official: stmdev_ctx_t + all APIs */
 #include "include/imu_shadow.h"           /* shadow register accessors */
 #include "include/i2c_scanner_reg.h"      /* bus-scan presence map */
+#include "include/XDS110_cdc.h"           /* uart_send_async */
+#include "../chip/ti_drivers_i2c_config.h" /* I2C_Handle, I2C_Transaction */
 
+#include <FreeRTOS.h>
+#include <task.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+#include <math.h>
+
+/* ---- I2C handle (extern from I2C_test.c) ---- */
+extern I2C_Handle g_i2cHandle;
+
+/*
+ *  Proxy addressing info (guideline §4.1: 只存寻址信息).
+ *  Initialised to 0x6B; updated by is_present/init at runtime.
+ */
+static uint8_t s_imu_addr = 0x6BU;
+
+/* ---- Platform ctx (local to this TU) ---- */
+static stmdev_ctx_t g_imu_ctx;
+
+/* ---- Platform I²C + delay callbacks ---- */
+static int32_t platform_write(void *h, uint8_t reg, const uint8_t *buf, uint16_t len)
+{
+    I2C_Handle i2c = (I2C_Handle)h;
+    if (!i2c || len + 1U > 16) return -1;
+    uint8_t wbuf[16];
+    wbuf[0] = reg;
+    for (uint16_t i = 0; i < len; i++) wbuf[i + 1] = buf[i];
+    I2C_Transaction txn = {0};
+    txn.targetAddress = s_imu_addr;
+    txn.writeBuf      = wbuf;
+    txn.writeCount    = len + 1U;
+    txn.readBuf       = NULL;
+    txn.readCount     = 0;
+    return I2C_transfer(i2c, &txn) ? 0 : -1;
+}
+
+static int32_t platform_read(void *h, uint8_t reg, uint8_t *buf, uint16_t len)
+{
+    I2C_Handle i2c = (I2C_Handle)h;
+    if (!i2c) return -1;
+    I2C_Transaction txn = {0};
+    txn.targetAddress = s_imu_addr;
+    txn.writeBuf      = &reg;
+    txn.writeCount    = 1;
+    txn.readBuf       = buf;
+    txn.readCount     = len;
+    return I2C_transfer(i2c, &txn) ? 0 : -1;
+}
+
+static void platform_mdelay(uint32_t ms)
+{
+    vTaskDelay(pdMS_TO_TICKS(ms));
+}
+
+/* ====================================================================
+ *  Public API
+ * ==================================================================== */
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
@@ -53,109 +111,83 @@ bool lsm6dsv16x_is_present(void)
  *  so we don't duplicate reset/boot-wait logic.
  */
 
-static uint8_t s_imu_addr = 0x6BU;  /* resolved by is_present */
-
 bool lsm6dsv16x_init(void)
 {
     uint8_t whoami = 0;
 
-    lsm6dsv16x_platform_init();
+    /* ── 0. Wire ctx once ── */
+    g_imu_ctx.handle    = g_i2cHandle;
+    g_imu_ctx.read_reg  = platform_read;
+    g_imu_ctx.write_reg = platform_write;
+    g_imu_ctx.mdelay     = platform_mdelay;
 
-    /* ---- 0. Resolve I2C address ---- */
-    if (i2c_scan_get_ack(0x6AU)) {
-        s_imu_addr = 0x6AU;
-    } else {
-        s_imu_addr = 0x6BU;
-    }
+    s_imu_addr = i2c_scan_get_ack(0x6AU) ? 0x6AU : 0x6BU;
 
-    /* ---- 1. Platform ctx already wired by lsm6dsv16x_platform_init() ---- */
-    /* ---- 2. Device ID ---- */
-    if (lsm6dsv16x_device_id_get(&g_imu_ctx, &whoami) != 0) {
+    /* ── 1. Device ID ── */
+    if (lsm6dsv16x_device_id_get(&g_imu_ctx, &whoami) || whoami != LSM6DSV16X_ID) {
         imu_set_init_err(1);
         return false;
     }
     imu_set_whoami(whoami);
-    if (whoami != LSM6DSV16X_ID) {
-        imu_set_init_err(1);
-        return false;
-    }
 
-    /* ---- 3. Software reset ---- */
+    /* ── 2. Soft reset + wait ── */
     lsm6dsv16x_sw_reset(&g_imu_ctx);
-    {
-        volatile uint32_t d = 4800000U;  /* ~150 ms @ 32 MHz */
-        while (d--) { __asm__ volatile(""); }
-    }
+    for (volatile uint32_t d = 4800000U; d; d--) { __asm__ volatile(""); }
 
-    /* ---- 4. CTRL3: BDU ---- */
+    /* ── 3. Basic config ── */
     lsm6dsv16x_block_data_update_set(&g_imu_ctx, PROPERTY_ENABLE);
-
-    /* ---- 5. Full scale ---- */
     lsm6dsv16x_xl_full_scale_set(&g_imu_ctx, LSM6DSV16X_16g);
     lsm6dsv16x_gy_full_scale_set(&g_imu_ctx, LSM6DSV16X_2000dps);
 
-    /* ---- 6. ODR: 30 Hz (matching SFLP 30 Hz per official example) ---- */
+    /* ── 4. ODR: 30 Hz (sensors + SFLP aligned) ── */
     lsm6dsv16x_xl_data_rate_set(&g_imu_ctx, LSM6DSV16X_ODR_AT_30Hz);
     lsm6dsv16x_gy_data_rate_set(&g_imu_ctx, LSM6DSV16X_ODR_AT_30Hz);
     lsm6dsv16x_sflp_data_rate_set(&g_imu_ctx, LSM6DSV16X_SFLP_30Hz);
 
-    /* ---- 7. SFLP: batch game rotation + gravity + gbias into FIFO ---- */
+    /* ── 5. SFLP FIFO batching ── */
     {
         lsm6dsv16x_fifo_sflp_raw_t sflp = {0};
         sflp.game_rotation = 1;
-        sflp.gravity = 1;
-        sflp.gbias = 1;
+        sflp.gravity       = 1;
+        sflp.gbias         = 1;
         lsm6dsv16x_fifo_sflp_batch_set(&g_imu_ctx, sflp);
     }
 
-    /* ---- 8. SFLP: enable the game rotation algorithm ---- */
+    /* ── 6. SFLP enable + bias init ── */
     lsm6dsv16x_sflp_game_rotation_set(&g_imu_ctx, PROPERTY_ENABLE);
-
-    /* ---- 9. Zero gyro bias (app should restore NVM values later) ---- */
     {
         lsm6dsv16x_sflp_gbias_t gb = {0};
         lsm6dsv16x_sflp_game_gbias_set(&g_imu_ctx, &gb);
     }
 
-    /* ---- 10. FIFO continuous (STREAM) mode ---- */
+    /* ── 7. FIFO stream mode ── */
     lsm6dsv16x_fifo_mode_set(&g_imu_ctx, LSM6DSV16X_STREAM_MODE);
 
-    /* ---- 11. Config readback (debug) ---- */
+    /* ── 8. Diag readback (init only, not in hot path) ── */
     {
-        uint8_t c3 = 0, c1 = 0, c2 = 0;
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL3, &c3, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL1, &c1, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL2, &c2, 1);
-        imu_set_cfg_readback(c3, c1, c2);
-    }
-
-    /* ---- 12. SFLP diag readback ---- */
-    {
-        uint8_t en_a = 0, init_a = 0, exec_s = 0, fifo_ena = 0;
-        uint8_t fs1 = 0, fs2 = 0, odr = 0, pg = 0;
+        uint8_t a, b, c, d, e, f, g, h, i, j, k, l;
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL3, &a, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL1, &b, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL2, &c, 1);
+        imu_set_cfg_readback(a, b, c);
 
         lsm6dsv16x_mem_bank_set(&g_imu_ctx, LSM6DSV16X_EMBED_FUNC_MEM_BANK);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_EN_A, &en_a, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_INIT_A, &init_a, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_EXEC_STATUS, &exec_s, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_FIFO_EN_A, &fifo_ena, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_SFLP_ODR, &odr, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_PAGE_SEL, &pg, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_EN_A,       &d, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_INIT_A,     &e, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_EXEC_STATUS,&f, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_FIFO_EN_A,  &g, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_SFLP_ODR,            &h, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_PAGE_SEL,            &i, 1);
         lsm6dsv16x_mem_bank_set(&g_imu_ctx, LSM6DSV16X_MAIN_MEM_BANK);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_FIFO_STATUS1, &fs1, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_FIFO_STATUS2, &fs2, 1);
-        imu_set_sflp_diag(en_a, init_a, exec_s, fifo_ena, fs1, fs2, odr, pg);
-        imu_set_cfg_fca(0);  /* not read here; official mem_bank API handles it */
-    }
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_FIFO_STATUS1, &j, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_FIFO_STATUS2, &k, 1);
+        imu_set_sflp_diag(d, e, f, g, j, k, h, i);
 
-    /* ---- 13. Post-SFLP main-page readback ---- */
-    {
-        uint8_t c1 = 0, c2 = 0, c8 = 0, c6 = 0;
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL1, &c1, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL2, &c2, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL8, &c8, 1);
-        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL6, &c6, 1);
-        imu_set_cfg_post_sflp(c1, c2, c8, c6);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL1, &b, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL2, &c, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL8, &l, 1);
+        lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_CTRL6, &a, 1);
+        imu_set_cfg_post_sflp(b, c, l, a);
     }
 
     imu_set_init_err(0);
@@ -211,28 +243,10 @@ void lsm6dsv16x_sync_from_device(void)
         imu_inc_bus_err();
     }
 
-    /* ---- SFLP quaternion from FIFO ---- */
+    /* ---- SFLP quaternion from FIFO (main page only — no bank switch in hot path) ---- */
     {
         lsm6dsv16x_fifo_status_t fs = {0};
         lsm6dsv16x_fifo_status_get(&g_imu_ctx, &fs);
-
-        /* Live diag */
-        {
-            uint8_t en_a = 0, init_a = 0, exec_s = 0, fifo_ena = 0;
-            uint8_t odr = 0, pg = 0;
-            lsm6dsv16x_mem_bank_set(&g_imu_ctx, LSM6DSV16X_EMBED_FUNC_MEM_BANK);
-            lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_EN_A, &en_a, 1);
-            lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_INIT_A, &init_a, 1);
-            lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_EXEC_STATUS, &exec_s, 1);
-            lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_EMB_FUNC_FIFO_EN_A, &fifo_ena, 1);
-            lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_SFLP_ODR, &odr, 1);
-            lsm6dsv16x_read_reg(&g_imu_ctx, LSM6DSV16X_PAGE_SEL, &pg, 1);
-            lsm6dsv16x_mem_bank_set(&g_imu_ctx, LSM6DSV16X_MAIN_MEM_BANK);
-            imu_set_sflp_diag(en_a, init_a, exec_s, fifo_ena,
-                              (uint8_t)(fs.fifo_level & 0xFF),
-                              (uint8_t)((fs.fifo_level >> 8) & 0xFF),
-                              odr, pg);
-        }
 
         /* Drain FIFO — keep last quaternion entry */
         uint16_t n = fs.fifo_level;
@@ -250,10 +264,10 @@ void lsm6dsv16x_sync_from_device(void)
                 };
                 sflp2q(quat, sflp_raw);
                 imu_set_quaternion(
-                    (int16_t)(quat[3] / 0.061f),  /* W */
-                    (int16_t)(quat[0] / 0.061f),  /* X */
-                    (int16_t)(quat[1] / 0.061f),  /* Y */
-                    (int16_t)(quat[2] / 0.061f)); /* Z */
+                    (int16_t)(quat[3] / 0.061f),
+                    (int16_t)(quat[0] / 0.061f),
+                    (int16_t)(quat[1] / 0.061f),
+                    (int16_t)(quat[2] / 0.061f));
             }
         }
     }

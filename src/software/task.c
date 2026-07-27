@@ -13,7 +13,6 @@
 #include "include/build_in_led.h"
 #include "include/led_reg.h"
 #include "include/XDS110_cdc.h"
-#include "include/lsm6dsv16x_platform.h"  /* g_imu_ctx, official register defs */
 #include "include/imu_shadow.h"           /* shadow register accessors */
 
 /* I2C functions (in src/driver/chip/I2C_test.c) */
