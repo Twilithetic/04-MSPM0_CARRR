@@ -47,15 +47,15 @@ int main(void)
                           NULL,        1,          NULL);
     configASSERT(xReturn == pdPASS);
 
-    xReturn = xTaskCreate(vI2CScanTask, "I2CScan",  configMINIMAL_STACK_SIZE * 8,
+    xReturn = xTaskCreate(vI2CScanTask, "I2CScan",  configMINIMAL_STACK_SIZE * 2,
                           NULL,        2,          NULL);
     configASSERT(xReturn == pdPASS);
 
-    xReturn = xTaskCreate(vImuPollTask, "ImuPoll",  configMINIMAL_STACK_SIZE * 10,
+    xReturn = xTaskCreate(vImuPollTask, "ImuPoll",  configMINIMAL_STACK_SIZE * 4,
                           NULL,        3,          NULL);
     configASSERT(xReturn == pdPASS);
 
-    xReturn = xTaskCreate(vLoggerTask, "Logger",   configMINIMAL_STACK_SIZE * 4,
+    xReturn = xTaskCreate(vLoggerTask, "Logger",   configMINIMAL_STACK_SIZE * 3,
                           NULL,        1,          NULL);
     configASSERT(xReturn == pdPASS);
 
