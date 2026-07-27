@@ -59,7 +59,7 @@ void vGreenTask(void *pvParameters)
 void vI2CScanTask(void *pvParameters)
 {
     (void) pvParameters;
-
+    vTaskDelay(pdMS_TO_TICKS(300));// 等那些芯片先启动
     i2c_scan_bus();
 
     /* Counting semaphore — give twice: one for ImuPoll, one for Logger */
