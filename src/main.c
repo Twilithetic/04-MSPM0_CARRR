@@ -19,6 +19,8 @@
 #include <task.h>
 #include <semphr.h>
 
+extern void i2c_test_init(void);
+
 #define DELAY_100MS_CYCLES  (3200000U)
 
 /* ---- Semaphore: I2C scan done → consumers can proceed ---- */

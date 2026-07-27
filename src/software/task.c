@@ -21,6 +21,7 @@ extern void i2c_scan_bus(void);
 extern void i2c_scan_print_results(void);
 
 /* IMU Proxy (in src/driver/board/LSM6DSV16X.c) */
+extern bool lsm6dsv16x_is_present(void);
 extern bool lsm6dsv16x_init(void);
 extern void lsm6dsv16x_sync_from_device(void);
 
@@ -73,16 +74,17 @@ void vImuPollTask(void *pvParameters)
 {
     (void) pvParameters;
 
-    /* Wait for I2C scan + IMU init to finish.  vI2CScanTask (prio 2)
-     * creates the semaphore and gives it after init, so this is safe. */
+    /* Wait for I2C scan to finish.  vI2CScanTask (prio 2) gives
+     * the semaphore after i2c_scan_bus(), so this is safe. */
     xSemaphoreTake(g_scanDoneSem, portMAX_DELAY);
 
-    if (!imu_is_ready()) {
-        /* IMU init failed — silently exit */
+    /* Check if the IMU was found on the bus */
+    if (!lsm6dsv16x_is_present()) {
+        /* IMU not found — silently exit */
         vTaskDelete(NULL);
     }
 
-    /* Initialize IMU after I2C scan is done */
+    /* Initialize IMU (I2C is up, bus scan found it) */
     (void) lsm6dsv16x_init();
 
     TickType_t xLastWakeTime = xTaskGetTickCount();

@@ -20,6 +20,7 @@
  */
 
 #include "include/lsm6dsv16x_reg.h"
+#include "include/i2c_scanner_reg.h"
 #include "../chip/ti_drivers_i2c_config.h"
 
 #include <math.h>
@@ -133,26 +134,34 @@ static bool imu_embed_write_reg(uint8_t reg, uint8_t val)
  * ==================================================================== */
 
 /*
+ *  Check if the IMU responded to the I2C bus scan.
+ *  Uses g_i2c_scan_reg — populated by i2c_scan_bus() before this call.
+ *  Returns true if the LSM6DSV16X was found at its expected address.
+ */
+bool lsm6dsv16x_is_present(void)
+{
+    return i2c_scan_get_ack(LSM6DSV16X_I2C_ADDR_SA0_0) ||
+           i2c_scan_get_ack(LSM6DSV16X_I2C_ADDR_SA0_1);
+}
+
+/*
  *  Init LSM6DSV16X.
  *  Sequence:
- *    1. Check WHO_AM_I
- *    2. Software reset → wait 100 ms
- *    3. CTRL3: enable IF_INC + BDU
- *    4. CTRL1_XL: accel 240 Hz, HP mode
- *    5. CTRL2_G:  gyro  240 Hz, HP mode
- *    6. CTRL8_XL: accel ±16g
- *    7. CTRL6_G:  gyro  ±2000 dps
- *    8. Embedded bank: enable SFLP game FIFO
- *    9. FIFO_CTRL4: continuous mode
+ *    1. Software reset → wait 100 ms
+ *    2. CTRL3: enable IF_INC + BDU
+ *    3. CTRL1_XL: accel 240 Hz, HP mode
+ *    4. CTRL2_G:  gyro  240 Hz, HP mode
+ *    5. CTRL8_XL: accel ±16g
+ *    6. CTRL6_G:  gyro  ±2000 dps
+ *    7. Embedded bank: enable SFLP game FIFO
+ *    8. FIFO_CTRL4: continuous mode
  *
  *  Returns true if WHO_AM_I matches.
  */
 bool lsm6dsv16x_init(void)
 {
-    uint8_t whoami;
-
-    /* 1. Check device ID */
-    whoami = imu_read_reg(LSM6DSV16X_WHO_AM_I);
+    /* 1. Verify device identity */
+    uint8_t whoami = imu_read_reg(LSM6DSV16X_WHO_AM_I);
     if (whoami != LSM6DSV16X_WHO_AM_I_VALUE) {
         return false;
     }
@@ -274,21 +283,11 @@ bool lsm6dsv16x_sync_sflp_quaternion(void)
     uint8_t tag = buf[0];
 
     if (tag == LSM6DSV16X_SFLP_GAME_ROTATION_VECTOR_TAG) {
-        /* Quaternion: XY ZW order in FIFO.
-         * buf[1-2]=X, buf[3-4]=Y, buf[5-6]=Z; W is computed: sqrt(1 - (X²+Y²+Z²))
-         * ST convention: W is in the 4th slot, stored in subsequent FIFO reads
-         * For now we store raw int16 and let the consumer handle float conversion.
-         */
+        /* Quaternion: X Y Z in FIFO.  W is computed from unit sphere. */
         qx = (int16_t)(((uint16_t)buf[2] << 8) | buf[1]);
         qy = (int16_t)(((uint16_t)buf[4] << 8) | buf[3]);
         qz = (int16_t)(((uint16_t)buf[6] << 8) | buf[5]);
 
-        /*
-         * W is computed from X² + Y² + Z².
-         * In ST's SFLP convention: the saved 3 components contain
-         * the vector part + sign, and W = sign*sqrt(max(0, 1 - (X²+Y²+Z²))).
-         * The scaling factor is the same for all 3 components.
-         */
         {
             float fx = (float)qx * 0.061f;
             float fy = (float)qy * 0.061f;
