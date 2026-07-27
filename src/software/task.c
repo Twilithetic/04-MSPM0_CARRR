@@ -91,7 +91,7 @@ void vImuPollTask(void *pvParameters)
 
     for (;;) {
         lsm6dsv16x_sync_from_device();
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));  /* 100 Hz */
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(5));  /* 200 Hz — faster than SFLP 240 Hz */
     }
 }
 

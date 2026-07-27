@@ -139,10 +139,10 @@ bool lsm6dsv16x_init(void)
     lsm6dsv16x_xl_full_scale_set(&g_imu_ctx, LSM6DSV16X_16g);
     lsm6dsv16x_gy_full_scale_set(&g_imu_ctx, LSM6DSV16X_2000dps);
 
-    /* ── 4. ODR: 30 Hz (sensors + SFLP aligned) ── */
-    lsm6dsv16x_xl_data_rate_set(&g_imu_ctx, LSM6DSV16X_ODR_AT_30Hz);
-    lsm6dsv16x_gy_data_rate_set(&g_imu_ctx, LSM6DSV16X_ODR_AT_30Hz);
-    lsm6dsv16x_sflp_data_rate_set(&g_imu_ctx, LSM6DSV16X_SFLP_30Hz);
+    /* ── 4. ODR: 240 Hz (sensors + SFLP aligned) ── */
+    lsm6dsv16x_xl_data_rate_set(&g_imu_ctx, LSM6DSV16X_ODR_AT_240Hz);
+    lsm6dsv16x_gy_data_rate_set(&g_imu_ctx, LSM6DSV16X_ODR_AT_240Hz);
+    lsm6dsv16x_sflp_data_rate_set(&g_imu_ctx, LSM6DSV16X_SFLP_240Hz);
 
     /* ── 5. SFLP FIFO batching ── */
     {
