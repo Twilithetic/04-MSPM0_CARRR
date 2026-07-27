@@ -13,7 +13,8 @@
 #include "include/build_in_led.h"
 #include "include/led_reg.h"
 #include "include/XDS110_cdc.h"
-#include "include/lsm6dsv16x_reg.h"
+#include "include/lsm6dsv16x_platform.h"  /* g_imu_ctx, official register defs */
+#include "include/imu_shadow.h"           /* shadow register accessors */
 
 /* I2C functions (in src/driver/chip/I2C_test.c) */
 extern void i2c_test_init(void);
@@ -129,7 +130,7 @@ void vLoggerTask(void *pvParameters)
                          " cfg:B3=0x%02X C3=0x%02X C1=0x%02X C2=0x%02X"
                          " post:C1=0x%02X C2=0x%02X C8=0x%02X C6=0x%02X"
                          " fca=0x%02X be:%lu"
-                         " SFLP:en=0x%02X in=0x%02X ex=0x%02X fi=0x%02X FIFO:%u/%u"
+                         " SFLP:en=0x%02X in=0x%02X ex=0x%02X fi=0x%02X FIFO:%u/%u odr=0x%02X pg=0x%02X"
                          " | q:%d %d %d %d"
                          " | g:%d %d %d"
                          " | a:%d %d %d\r\n",
@@ -155,6 +156,8 @@ void vLoggerTask(void *pvParameters)
                          (unsigned int) imu_get_sflp_fifo_en_a(),
                          (unsigned int) imu_get_fifo_status1(),
                          (unsigned int) imu_get_fifo_status2(),
+                         (unsigned int) imu_get_sflp_odr_rdbk(),
+                         (unsigned int) imu_get_page_sel_rdbk(),
                          (int) imu_get_qw(), (int) imu_get_qx(),
                          (int) imu_get_qy(), (int) imu_get_qz(),
                          (int) imu_get_gx(), (int) imu_get_gy(), (int) imu_get_gz(),

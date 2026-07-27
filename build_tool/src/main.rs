@@ -49,7 +49,10 @@ const C_FILES: &[(&str, &str)] = &[
     ("registers.c",    "src/proxy/registers.c"),
     ("I2C_test.c",     "src/driver/chip/I2C_test.c"),
     ("ti_drivers_i2c_config.c", "src/driver/chip/ti_drivers_i2c_config.c"),
+    // ---- IMU (LSM6DSV16X) ----
     ("LSM6DSV16X.c",    "src/driver/board/LSM6DSV16X.c"),
+    ("lsm6dsv16x_reg.c", "src/driver/board/lsm6dsv16x_reg.c"),
+    ("lsm6dsv16x_platform.c", "src/driver/board/lsm6dsv16x_platform.c"),
 
     // ---- TI Drivers DPL (FreeRTOS porting layer) ----
     ("HwiPMSPM0_freertos.c", "C:/ti/mspm0_sdk_2_10_00_04/kernel/freertos/dpl/HwiPMSPM0_freertos.c"),
@@ -85,6 +88,8 @@ const OBJS: &[&str] = &[
     "I2C_test",
     "ti_drivers_i2c_config",
     "LSM6DSV16X",
+    "lsm6dsv16x_reg",
+    "lsm6dsv16x_platform",
     "HwiPMSPM0_freertos",
     "SemaphoreP_freertos",
     "ClockP_freertos",
