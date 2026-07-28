@@ -41,6 +41,7 @@ extern void lsm6dsv16x_sync_from_device(void);
 
 /* ---- Semaphore (created in main.c before scheduler starts) ---- */
 extern SemaphoreHandle_t g_scanDoneSem;
+extern SemaphoreHandle_t g_motorDoneSem;
 
 /* ── Blue LED blink ── */
 void vBlueTask(void *pvParameters)
@@ -104,7 +105,11 @@ void vImuPollTask(void *pvParameters)
     }
 }
 
-/* ── Logger task (prio 1): prints IMU stats @ ~8 Hz (123 ms period) ── */
+/* ── Logger task (prio 1): prints IMU + motor encoder stats via DMA-UART @ 10 Hz ──
+ *
+ *  Waits for:
+ *   1. g_scanDoneSem  from vI2CScanTask  (I2C bus scan done)
+ *   2. g_motorDoneSem from vMotorInitTask (motor config done, DMA-UART safe) */
 void vLoggerTask(void *pvParameters)
 {
     (void) pvParameters;
@@ -113,8 +118,12 @@ void vLoggerTask(void *pvParameters)
     uart_send_async((const uint8_t *)
         "MSPM0G3507 FreeRTOS — I2C Scan\r\n", 35, 0);
 
+    /* Wait for I2C scan */
     xSemaphoreTake(g_scanDoneSem, portMAX_DELAY);
     i2c_scan_print_results();
+
+    /* Wait for motor init to finish before printing encoder data */
+    xSemaphoreTake(g_motorDoneSem, portMAX_DELAY);
 
     for (;;) {
         char buf[UART_TX_BUF_SIZE];
@@ -147,7 +156,7 @@ void vLoggerTask(void *pvParameters)
     }
 }
 
-/* ── Motor Init Task (prio 2): one-shot config then delete ── */
+/* ── Motor Init Task (prio 2): one-shot config, signals Logger, then delete ── */
 void vMotorInitTask(void *pvParameters)
 {
     (void) pvParameters;
@@ -179,6 +188,9 @@ void vMotorInitTask(void *pvParameters)
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
         }
     }
+
+    /* Release Logger — motor init is done, encoder data is safe to read */
+    xSemaphoreGive(g_motorDoneSem);
 
     vTaskDelete(NULL);
 }

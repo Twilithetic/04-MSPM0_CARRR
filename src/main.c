@@ -26,6 +26,9 @@ extern void i2c_test_init(void);
 /* ---- Semaphore: I2C scan done → consumers can proceed ---- */
 SemaphoreHandle_t g_scanDoneSem = NULL;
 
+/* ---- Semaphore: motor init done → Logger can read encoder data ---- */
+SemaphoreHandle_t g_motorDoneSem = NULL;
+
 int main(void)
 {
     /* ---- Hardware init ---- */
@@ -33,10 +36,14 @@ int main(void)
     uart_init();
     i2c_test_init();
 
-    /* Create semaphore BEFORE scheduler starts — two tasks will wait on it.
+    /* Create semaphore BEFORE scheduler starts.
      * Counting semaphore: max 2, initial 0.  vI2CScanTask gives it once
      * after scan+init; both vImuPollTask and vLoggerTask can take. */
     g_scanDoneSem = xSemaphoreCreateCounting(2, 0);
+
+    /* Binary semaphore: motor init done → Logger can safely print encoder data.
+     * Initial 0 — Logger blocks until vMotorInitTask gives it. */
+    g_motorDoneSem = xSemaphoreCreateBinary();
 
     /* ---- Create application tasks ---- */
     BaseType_t xReturn;
