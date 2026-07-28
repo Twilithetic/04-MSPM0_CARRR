@@ -237,7 +237,7 @@ bool motor_driver_init(void)
 
     /* Stop motors */
     motor_send_cmd_nowait("$pwm:0,0,0,0#", 50);
-    motor_send_cmd_nowait("$spd:0,0,0,0#", 50);
+    motor_send_cmd_nowait("$spd:0,100,0,-50#", 50);
 
     /* Health check — this one returns a response */
     const char *resp = motor_send_cmd("$read_vol#", 200);
@@ -291,8 +291,8 @@ void sync_encoder_from_device(MotorDriverReg *r)
     if (sscanf(resp, "MTEP:%hd,%hd,%hd,%hd", &m1, &m2, &m3, &m4) < 4)
         { r->comm_status = 0xFE; return; }
 
-    r->encoder_10ms_left  = m4;
-    r->encoder_10ms_right = m2;
+    r->encoder_10ms_left  = m2;
+    r->encoder_10ms_right = m4;
     r->comm_status = 0;
 }
 
@@ -326,4 +326,35 @@ void motor_uart_putchar(char c)
 {
     while (DL_UART_Main_isBusy(UART_1_INST)) { vTaskDelay(1); }
     DL_UART_Main_transmitData(UART_1_INST, (uint8_t)c);
+}
+
+/* ====================================================================
+ *  Print motor config to debug-UART (UART0, DMA non-blocking)
+ * ==================================================================== */
+
+#include "include/XDS110_cdc.h"    /* uart_send_async */
+
+void motor_print_config(bool ok)
+{
+    if (ok) {
+        char buf[64];
+        int n = snprintf(buf, sizeof(buf),
+                         "Motor init OK: type=%u enc=%u ratio=%u dia=%.1fmm dz=%u\r\n",
+                         (unsigned int) motor_get_motor_type(),
+                         (unsigned int) motor_get_pulse_line(),
+                         (unsigned int) motor_get_reduction_ratio(),
+                         (double) motor_get_wheel_diameter(),
+                         (unsigned int) motor_get_deadzone());
+        if (n > 0 && (size_t) n < sizeof(buf)) {
+            uart_send_async((const uint8_t *) buf, (size_t) n, 0);
+        }
+    } else {
+        char buf[48];
+        int n = snprintf(buf, sizeof(buf),
+                         "Motor init FAIL: err_step=0x%02X\r\n",
+                         (unsigned int) motor_get_comm_status());
+        if (n > 0 && (size_t) n < sizeof(buf)) {
+            uart_send_async((const uint8_t *) buf, (size_t) n, 0);
+        }
+    }
 }

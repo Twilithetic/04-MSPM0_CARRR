@@ -43,6 +43,9 @@ uint16_t motor_read_battery_voltage(void);
 /* ---- printf redirect (fputc override) ---- */
 void motor_uart_putchar(char c);
 
+/* ---- Print motor config to debug-UART (UART0, non-blocking) ---- */
+void motor_print_config(bool ok);
+
 #ifdef __cplusplus
 }
 #endif

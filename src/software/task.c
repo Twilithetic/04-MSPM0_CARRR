@@ -175,27 +175,7 @@ void vMotorInitTask(void *pvParameters)
     /* Run the TT encoder config sequence */
     bool ok = cmd_config_tt_encoder(&g_motor_driver_reg);
 
-    if (ok) {
-        char buf[64];
-        int n = snprintf(buf, sizeof(buf),
-                         "Motor init OK: type=%u enc=%u ratio=%u dia=%.1fmm dz=%u\r\n",
-                         (unsigned int) motor_get_motor_type(),
-                         (unsigned int) motor_get_pulse_line(),
-                         (unsigned int) motor_get_reduction_ratio(),
-                         (double) motor_get_wheel_diameter(),
-                         (unsigned int) motor_get_deadzone());
-        if (n > 0 && (size_t) n < sizeof(buf)) {
-            uart_send_async((const uint8_t *) buf, (size_t) n, 0);
-        }
-    } else {
-        char buf[48];
-        int n = snprintf(buf, sizeof(buf),
-                         "Motor init FAIL: err_step=0x%02X\r\n",
-                         (unsigned int) motor_get_comm_status());
-        if (n > 0 && (size_t) n < sizeof(buf)) {
-            uart_send_async((const uint8_t *) buf, (size_t) n, 0);
-        }
-    }
+    motor_print_config(ok);
 
     /* Release Logger — motor init is done, encoder data is safe to read */
     xSemaphoreGive(g_motorDoneSem);
