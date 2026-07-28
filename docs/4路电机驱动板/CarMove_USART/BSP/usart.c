@@ -1,4 +1,5 @@
 #include "usart.h"
+#include "stdio.h"
 
 #define RE_0_BUFF_LEN_MAX	128
 
@@ -14,9 +15,11 @@ void USART_Init(void)
 	//清除串口中断标志
 	//Clear the serial port interrupt flag
 	NVIC_ClearPendingIRQ(UART_0_INST_INT_IRQN);
+	NVIC_ClearPendingIRQ(UART_1_INST_INT_IRQN);
 	//使能串口中断
 	//Enable serial port interrupt
 	NVIC_EnableIRQ(UART_0_INST_INT_IRQN);
+	NVIC_EnableIRQ(UART_1_INST_INT_IRQN);
 }
 
 //串口发送一个字节
