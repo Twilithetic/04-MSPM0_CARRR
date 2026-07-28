@@ -5,20 +5,22 @@
  *  Hardware:
  *    UART1: PA8 TX, PA9 RX @ 115200 8N1
  *
- *  UART I/O (TI Drivers BLOCKING mode):
- *    Motor protocol is simple request-response: send a short command,
- *    read back a short response line.  BLOCKING mode is the right fit.
+ *  Implementation: pure DriverLib + FreeRTOS queue (matching vendor's
+ *  reference code in docs/4路电机驱动板/CarMove_USART/BSP/).
+ *  TI Drivers is NOT used — BLOCKING mode is unreliable and the
+ *  protocol is simple request-response with '#' framing.
  *
- *  NOT using CALLBACK+DMA because:
- *    TX and RX share one DMA channel → TX kills the background RX DMA.
- *    re-arming RX after each TX adds complexity for no benefit when the
- *    protocol is inherently request → wait → response.
+ *  Protocol:
+ *    Commands:  $cmd:args#         (no CR/LF — '#' is the terminator)
+ *    Responses: $KEY:data#         (terminated by '#')
  *
- *  Vendor protocol (docs/4路电机驱动板/):
- *    Config:   $mtype:3#  $deadzone:1250#  $mline:13#  $mphase:45#  $wdiameter:67#
- *    Control:  $spd:0,0,0,0#  $pwm:0,0,0,0#
- *    Upload:   $upload:0,1,0#   →  $MTEP:M1,M2,M3,M4#
- *    Read:     $read_vol#       →  $Battery:7.40V#
+ *    Write-only (no response):
+ *      $mtype:N#  $deadzone:N#  $mline:N#  $mphase:N#  $wdiameter:F#
+ *      $spd:M1,M2,M3,M4#  $pwm:M1,M2,M3,M4#
+ *
+ *    Query (returns response):
+ *      $read_vol#       →  $Battery:X.XXV#
+ *      $upload:0,1,0#   →  periodic $MTEP:M1,M2,M3,M4# every 10ms
  *
  *  Motor mapping:
  *    M1=LF  M2=LR  M3=RF  M4=RR
@@ -30,153 +32,199 @@
 
 #include <FreeRTOS.h>
 #include <task.h>
-#include <semphr.h>
+#include <queue.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 
-#include <ti/drivers/UART.h>
-#include <ti/drivers/uart/UARTMSPM0.h>
-
 /* ====================================================================
- *  UART1 config — PA8/PA9, TI Drivers BLOCKING mode
+ *  UART1 hardware — PA8 TX / PA9 RX
  * ==================================================================== */
 
-#define CONFIG_UART_COUNT  1
-#define CONFIG_UART_0      0
+#define UART_1_INST          UART1
+#define UART_1_IOMUX_RX      (IOMUX_PINCM20)
+#define UART_1_IOMUX_RX_FUNC IOMUX_PINCM20_PF_UART1_RX
+#define UART_1_IOMUX_TX      (IOMUX_PINCM19)
+#define UART_1_IOMUX_TX_FUNC IOMUX_PINCM19_PF_UART1_TX
 
-static const UARTMSP_HWAttrs g_uart_hw_attrs[CONFIG_UART_COUNT] = {
-    {
-        .regs          = UART1,
-        .irq           = UART1_INT_IRQn,
-        .rxPin         = IOMUX_PINCM20,            /* PA9 */
-        .rxPinFunction = IOMUX_PINCM20_PF_UART1_RX,
-        .txPin         = IOMUX_PINCM19,            /* PA8 */
-        .txPinFunction = IOMUX_PINCM19_PF_UART1_TX,
-        .mode          = DL_UART_MODE_NORMAL,
-        .direction     = DL_UART_DIRECTION_TX_RX,
-        .flowControl   = DL_UART_FLOW_CONTROL_NONE,
-        .clockSource   = DL_UART_CLOCK_BUSCLK,
-        .clockDivider  = DL_UART_CLOCK_DIVIDE_RATIO_4,
-        .rxIntFifoThr  = DL_UART_RX_FIFO_LEVEL_ONE_ENTRY,
-        .txIntFifoThr  = DL_UART_TX_FIFO_LEVEL_EMPTY,
-    },
-};
+/* ====================================================================
+ *  RX — interrupt-driven byte queue (matching vendor's ISR pattern)
+ * ==================================================================== */
 
-#define CONFIG_UART_BUFFER_SIZE  128
+#define RX_QUEUE_SIZE  256
+static QueueHandle_t g_rx_queue = NULL;
 
-static uint8_t g_uart_rx_buf[CONFIG_UART_BUFFER_SIZE];
-static uint8_t g_uart_tx_buf[CONFIG_UART_BUFFER_SIZE];
-
-static UART_Data_Object g_uart_objects[CONFIG_UART_COUNT] = {
-    {
-        .object = {
-            .supportFxns        = &UARTMSPSupportFxns,
-            .buffersSupported   = true,
-            .eventsSupported    = false,
-            .callbacksSupported = false,   /* BLOCKING mode */
-            .dmaSupported       = false,   /* no DMA — interrupt FIFO */
-        },
-        .buffersObject = {
-            .rxBufPtr  = g_uart_rx_buf,
-            .txBufPtr  = g_uart_tx_buf,
-            .rxBufSize = sizeof(g_uart_rx_buf),
-            .txBufSize = sizeof(g_uart_tx_buf),
-        },
-    },
-};
-
-const UART_Config UART_config[CONFIG_UART_COUNT] = {
-    { &g_uart_objects[CONFIG_UART_0], &g_uart_hw_attrs[CONFIG_UART_0] },
-};
-
-const uint_least8_t UART_count = CONFIG_UART_COUNT;
-
-/* ---- ISR dispatch ---- */
 void UART1_IRQHandler(void)
 {
-    UARTMSP_interruptHandler((UART_Handle)&UART_config[0]);
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    switch (DL_UART_Main_getPendingInterrupt(UART_1_INST)) {
+    case DL_UART_IIDX_RX: {
+        uint8_t byte = DL_UART_Main_receiveData(UART_1_INST);
+        xQueueSendFromISR(g_rx_queue, &byte, &xHigherPriorityTaskWoken);
+        break;
+    }
+    default:
+        break;
+    }
+
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
-/* ====================================================================
- *  Application state
- * ==================================================================== */
+/* ---- Init UART1 (pure DriverLib, matching vendor BSP) ---- */
 
-static UART_Handle g_motor_uart = NULL;
+static bool g_uart_ready = false;
 
-/* ---- Init UART1 with TI Drivers ---- */
 static bool motor_uart_init(void)
 {
-    if (g_motor_uart != NULL) return true;
+    if (g_uart_ready) return true;
 
-    UART_Params params;
-    UART_Params_init(&params);
-    params.baudRate       = 115200;
-    params.readMode       = UART_Mode_BLOCKING;
-    params.writeMode      = UART_Mode_BLOCKING;
-    params.readReturnMode = UART_ReadReturnMode_PARTIAL;
+    g_rx_queue = xQueueCreate(RX_QUEUE_SIZE, sizeof(uint8_t));
+    if (g_rx_queue == NULL) return false;
 
-    g_motor_uart = UART_open(CONFIG_UART_0, &params);
-    return (g_motor_uart != NULL);
+    /* Power + reset */
+    DL_UART_Main_reset(UART_1_INST);
+    DL_UART_Main_enablePower(UART_1_INST);
+
+    /* IOMUX */
+    DL_GPIO_initPeripheralOutputFunction(UART_1_IOMUX_TX, UART_1_IOMUX_TX_FUNC);
+    DL_GPIO_initPeripheralInputFunction(UART_1_IOMUX_RX, UART_1_IOMUX_RX_FUNC);
+
+    /* Clock: BUSCLK / 1 = 32MHz */
+    DL_UART_Main_ClockConfig clk = {
+        .clockSel    = DL_UART_MAIN_CLOCK_BUSCLK,
+        .divideRatio = DL_UART_MAIN_CLOCK_DIVIDE_RATIO_1,
+    };
+    DL_UART_Main_setClockConfig(UART_1_INST, &clk);
+
+    /* UART: 8N1 */
+    DL_UART_Main_Config cfg = {
+        .mode        = DL_UART_MAIN_MODE_NORMAL,
+        .direction   = DL_UART_MAIN_DIRECTION_TX_RX,
+        .flowControl = DL_UART_MAIN_FLOW_CONTROL_NONE,
+        .parity      = DL_UART_MAIN_PARITY_NONE,
+        .wordLength  = DL_UART_MAIN_WORD_LENGTH_8_BITS,
+        .stopBits    = DL_UART_MAIN_STOP_BITS_ONE,
+    };
+    DL_UART_Main_init(UART_1_INST, &cfg);
+
+    /* Baud: 115200 @ 32MHz */
+    DL_UART_Main_setOversampling(UART_1_INST, DL_UART_OVERSAMPLING_RATE_16X);
+    DL_UART_Main_setBaudRateDivisor(UART_1_INST, 17, 23);
+
+    /* FIFOs */
+    DL_UART_Main_enableFIFOs(UART_1_INST);
+    DL_UART_Main_setRXFIFOThreshold(UART_1_INST, DL_UART_RX_FIFO_LEVEL_ONE_ENTRY);
+    DL_UART_Main_setTXFIFOThreshold(UART_1_INST, DL_UART_TX_FIFO_LEVEL_EMPTY);
+
+    /* RX interrupt */
+    DL_UART_Main_enableInterrupt(UART_1_INST, DL_UART_INTERRUPT_RX);
+    NVIC_EnableIRQ(UART1_INT_IRQn);
+
+    /* Go */
+    DL_UART_Main_enable(UART_1_INST);
+
+    g_uart_ready = true;
+    return true;
 }
 
 /* ====================================================================
- *  Send raw string (BLOCKING — all bytes transmitted to shift register)
+ *  TX — poll FIFO, matching vendor's Send_Motor_ArrayU8 pattern
  * ==================================================================== */
 
 static void motor_uart_send(const char *s)
 {
-    if (!g_motor_uart || !s || !*s) return;
-
-    size_t len = strlen(s);
-    size_t written = 0;
-    UART_write(g_motor_uart, s, len, &written);
+    if (!s || !*s) return;
+    while (*s) {
+        while (DL_UART_Main_isBusy(UART_1_INST)) {
+            vTaskDelay(1);
+        }
+        DL_UART_Main_transmitData(UART_1_INST, (uint8_t)*s++);
+    }
 }
 
 /* ====================================================================
- *  Receive a line terminated by '\n', with per-byte timeout
+ *  RX — byte queue + '#' frame decoder, matching vendor pattern
  * ==================================================================== */
 
-#define MOTOR_RESP_BUF_SIZE 128
-static char g_motor_rx_line[MOTOR_RESP_BUF_SIZE];
-
-static const char *motor_uart_recv_line(TickType_t timeout_ms)
+/* Read one byte with timeout. Returns <0 on timeout. */
+static int motor_uart_getc(TickType_t timeout_ticks)
 {
-    size_t idx = 0;
     uint8_t byte;
+    if (xQueueReceive(g_rx_queue, &byte, timeout_ticks) == pdTRUE) {
+        return byte;
+    }
+    return -1;
+}
 
+/* Drain any stale bytes from the queue. */
+static void motor_uart_drain(void)
+{
+    uint8_t junk;
+    while (xQueueReceive(g_rx_queue, &junk, 0) == pdTRUE) {}
+}
+
+/*
+ *  Read a '#'-terminated frame.
+ *  Matching vendor's Deal_Control_Rxtemp: starts on '$', ends on '#'.
+ *  Returns pointer to static buffer (g_motor_rx_line), or empty string on
+ *  timeout.
+ */
+#define RESP_BUF_SIZE 128
+static char g_motor_rx_line[RESP_BUF_SIZE];
+
+static const char *motor_uart_recv_frame(TickType_t timeout_ms)
+{
+    /* 1. Wait for '$' start byte */
+    for (;;) {
+        int c = motor_uart_getc(timeout_ms);
+        if (c < 0) { g_motor_rx_line[0] = '\0'; return g_motor_rx_line; }
+        if (c == '$') break;
+    }
+
+    /* 2. Read until '#' */
+    size_t idx = 0;
     while (idx < sizeof(g_motor_rx_line) - 1) {
-        size_t n = 0;
-        int_fast16_t rc = UART_readTimeout(g_motor_uart, &byte, 1, &n, timeout_ms);
-        if (rc != UART_STATUS_SUCCESS || n != 1) break;  /* timeout / error */
-        if (byte == '\n') break;
-        if (byte != '\r') g_motor_rx_line[idx++] = (char)byte;
+        int c = motor_uart_getc(timeout_ms);
+        if (c < 0) break;        /* timeout */
+        if (c == '#') break;     /* frame end */
+        g_motor_rx_line[idx++] = (char)c;
     }
     g_motor_rx_line[idx] = '\0';
     return g_motor_rx_line;
 }
 
 /* ====================================================================
- *  Command helper: send command, then read response line
+ *  Command helper
  * ==================================================================== */
 
+/*
+ *  Send a command and read back a '#'-delimited response frame.
+ *  Returns pointer to response payload (without '$' / '#' delimiters),
+ *  or NULL/empty string on timeout.
+ *
+ *  NOTE: Most config commands ($mtype:, $spd:, etc.) do NOT produce a
+ *  response.  Only call this for query commands that return data.
+ */
 static const char *motor_send_cmd(const char *cmd, unsigned long timeout_ms)
 {
     if (!motor_uart_init()) return NULL;
 
-    /* Flush any stale RX data */
-    {
-        uint8_t junk;
-        size_t n;
-        while (UART_readTimeout(g_motor_uart, &junk, 1, &n, 1) == UART_STATUS_SUCCESS && n == 1) { }
-    }
-    __BKPT(0);
+    motor_uart_drain();
     motor_uart_send(cmd);
-    __BKPT(0);
-    motor_uart_recv_line(timeout_ms);
-    __BKPT(0);
+    motor_uart_recv_frame(timeout_ms);
     return g_motor_rx_line;
+}
+
+/*
+ *  Send a command that does NOT produce a response, then delay.
+ */
+static void motor_send_cmd_nowait(const char *cmd, unsigned long delay_ms)
+{
+    if (!motor_uart_init()) return;
+    motor_uart_send(cmd);
+    if (delay_ms) vTaskDelay(pdMS_TO_TICKS(delay_ms));
 }
 
 /* ====================================================================
@@ -187,15 +235,15 @@ bool motor_driver_init(void)
 {
     if (!motor_uart_init()) return false;
 
-    motor_uart_send("$pwm:0,0,0,0#\r\n");
-    vTaskDelay(pdMS_TO_TICKS(50));
-    motor_uart_send("$spd:0,0,0,0#\r\n");
-    vTaskDelay(pdMS_TO_TICKS(50));
+    /* Stop motors */
+    motor_send_cmd_nowait("$pwm:0,0,0,0#", 50);
+    motor_send_cmd_nowait("$spd:0,0,0,0#", 50);
 
-    const char *resp = motor_send_cmd("$read_vol#\r\n", 200);
+    /* Health check — this one returns a response */
+    const char *resp = motor_send_cmd("$read_vol#", 200);
     if (resp && strstr(resp, "Battery")) {
         float volts = 0.0f;
-        sscanf(resp, "$Battery:%fV", &volts);
+        sscanf(resp, "Battery:%fV", &volts);
         g_motor_driver_reg.comm_status = (uint8_t)(volts * 10.0f);
         return true;
     }
@@ -204,24 +252,14 @@ bool motor_driver_init(void)
 
 bool cmd_config_tt_encoder(MotorDriverReg *r)
 {
-    const char *resp;
+    motor_send_cmd_nowait("$mtype:3#", 100);
+    motor_send_cmd_nowait("$deadzone:1250#", 100);
+    motor_send_cmd_nowait("$mline:13#", 100);
+    motor_send_cmd_nowait("$mphase:45#", 100);
+    motor_send_cmd_nowait("$wdiameter:67#", 100);
 
-    resp = motor_send_cmd("$mtype:3#\r\n", 200);
-    if (!resp || !*resp) return false;  vTaskDelay(pdMS_TO_TICKS(100));
-
-    resp = motor_send_cmd("$deadzone:1250#\r\n", 200);
-    if (!resp || !*resp) return false;  vTaskDelay(pdMS_TO_TICKS(100));
-
-    resp = motor_send_cmd("$mline:13#\r\n", 200);
-    if (!resp || !*resp) return false;  vTaskDelay(pdMS_TO_TICKS(100));
-
-    resp = motor_send_cmd("$mphase:45#\r\n", 200);
-    if (!resp || !*resp) return false;  vTaskDelay(pdMS_TO_TICKS(100));
-
-    resp = motor_send_cmd("$wdiameter:67#\r\n", 200);
-    if (!resp || !*resp) return false;  vTaskDelay(pdMS_TO_TICKS(100));
-
-    resp = motor_send_cmd("$read_vol#\r\n", 200);
+    /* Verify with read_vol */
+    const char *resp = motor_send_cmd("$read_vol#", 200);
     if (!resp || !*resp) return false;
 
     r->motor_type = 3;  r->pulse_line = 13;  r->reduction_ratio = 45;
@@ -232,21 +270,25 @@ bool cmd_config_tt_encoder(MotorDriverReg *r)
 
 uint16_t motor_read_battery_voltage(void)
 {
-    const char *resp = motor_send_cmd("$read_vol#\r\n", 200);
+    const char *resp = motor_send_cmd("$read_vol#", 200);
     if (!resp || !*resp) return 0;
     float volts = 0.0f;
-    if (sscanf(resp, "$Battery:%fV", &volts) == 1)
+    if (sscanf(resp, "Battery:%fV", &volts) == 1)
         return (uint16_t)(volts * 10.0f);
     return 0;
 }
 
 void sync_encoder_from_device(MotorDriverReg *r)
 {
-    const char *resp = motor_send_cmd("$upload:0,1,0#\r\n", 100);
+    /* Enable 10ms encoder upload */
+    motor_send_cmd_nowait("$upload:0,1,0#", 0);
+
+    /* Read back the frame — it comes asynchronously every 10ms */
+    const char *resp = motor_uart_recv_frame(100);
     if (!resp || !*resp) { r->comm_status = 0xFF; return; }
 
     int16_t m1 = 0, m2 = 0, m3 = 0, m4 = 0;
-    if (sscanf(resp, "$MTEP:%hd,%hd,%hd,%hd#", &m1, &m2, &m3, &m4) < 4)
+    if (sscanf(resp, "MTEP:%hd,%hd,%hd,%hd", &m1, &m2, &m3, &m4) < 4)
         { r->comm_status = 0xFE; return; }
 
     r->encoder_10ms_left  = m4;
@@ -259,7 +301,7 @@ void sync_config_from_device(MotorDriverReg *r) { (void)r; }
 void flush_speed_to_device(MotorDriverReg *r)
 {
     char buf[64];
-    int n = snprintf(buf, sizeof(buf), "$spd:0,%d,0,%d#\r\n",
+    int n = snprintf(buf, sizeof(buf), "$spd:0,%d,0,%d#",
                      (int)r->target_speed_right, (int)r->target_speed_left);
     if (n > 0 && (size_t)n < sizeof(buf)) motor_uart_send(buf);
 }
@@ -267,7 +309,7 @@ void flush_speed_to_device(MotorDriverReg *r)
 void flush_pwm_to_device(MotorDriverReg *r)
 {
     char buf[64];
-    int n = snprintf(buf, sizeof(buf), "$pwm:0,%d,0,%d#\r\n",
+    int n = snprintf(buf, sizeof(buf), "$pwm:0,%d,0,%d#",
                      (int)r->target_pwm_right, (int)r->target_pwm_left);
     if (n > 0 && (size_t)n < sizeof(buf)) motor_uart_send(buf);
 }
@@ -282,8 +324,6 @@ void flush_stop_to_device(MotorDriverReg *r)
 
 void motor_uart_putchar(char c)
 {
-    if (g_motor_uart) {
-        size_t w;
-        UART_write(g_motor_uart, &c, 1, &w);
-    }
+    while (DL_UART_Main_isBusy(UART_1_INST)) { vTaskDelay(1); }
+    DL_UART_Main_transmitData(UART_1_INST, (uint8_t)c);
 }
