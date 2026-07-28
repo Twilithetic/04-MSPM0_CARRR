@@ -14,5 +14,7 @@ void vGreenTask(void *pvParameters);
 void vI2CScanTask(void *pvParameters);
 void vImuPollTask(void *pvParameters);
 void vLoggerTask(void *pvParameters);
+void vMotorInitTask(void *pvParameters);
+void vMotorSyncTask(void *pvParameters);
 
 #endif /* APP_TASKS_H */

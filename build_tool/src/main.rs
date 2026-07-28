@@ -49,6 +49,12 @@ const C_FILES: &[(&str, &str)] = &[
     ("registers.c",    "src/proxy/registers.c"),
     ("I2C_test.c",     "src/driver/chip/I2C_test.c"),
     ("ti_drivers_i2c_config.c", "src/driver/chip/ti_drivers_i2c_config.c"),
+    // ("ti_drivers_i2c1_config.c", "src/driver/chip/ti_drivers_i2c1_config.c"),  // not needed for GPIO bit-bang I2C
+    // NOTE: board_drivers_config.c is included above — if ti_drivers_i2c_config.c
+    // also defines GPIO_config/I2C_config, they will conflict at link time.
+    // We include the per‑board drivers_config variant here.
+    // ("board_drivers_config.c", "src/driver/board/board_drivers_config.c"),
+    ("motor_driver.c",  "src/driver/board/motor_driver.c"),
     // ---- IMU (LSM6DSV16X) ----
     ("LSM6DSV16X.c",    "src/driver/board/LSM6DSV16X.c"),
     ("lsm6dsv16x_reg.c", "src/driver/board/lsm6dsv16x_reg.c"),
@@ -86,6 +92,10 @@ const OBJS: &[&str] = &[
     "registers",
     "I2C_test",
     "ti_drivers_i2c_config",
+    "ti_drivers_i2c_config",
+    // "ti_drivers_i2c1_config",  // not needed — GPIO bit-bang I2C
+    // "board_drivers_config",    // conflicts with ti_drivers_i2c_config
+    "motor_driver",
     "LSM6DSV16X",
     "lsm6dsv16x_reg",
     "HwiPMSPM0_freertos",

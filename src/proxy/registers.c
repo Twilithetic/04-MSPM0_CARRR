@@ -5,6 +5,7 @@
  */
 
 #include "include/motor_reg.h"
+#include "include/motor_driver_reg.h"    /* 4-Way Motor Driver Board shadow */
 #include "include/line_reg.h"
 #include "include/status_reg.h"
 #include "include/led_reg.h"
@@ -372,3 +373,40 @@ uint32_t led_get_blue(void)             { return g_led_reg.blue_toggle_count; }
 // ---- green ----
 void     led_inc_green(void)            { g_led_reg.green_toggle_count++; }
 uint32_t led_get_green(void)            { return g_led_reg.green_toggle_count; }
+
+// =====================================================================
+//  MotorDriverReg  — 4-Way Motor Driver Board shadow register
+//  Full struct definition in motor_driver_reg.h
+// =====================================================================
+
+MotorDriverReg g_motor_driver_reg = {0};
+
+/* ── Read access ── */
+
+int32_t motor_get_encoder_left(void)  { return g_motor_driver_reg.encoder_total_left; }
+int32_t motor_get_encoder_right(void) { return g_motor_driver_reg.encoder_total_right; }
+int16_t motor_get_encoder_10ms_left(void)  { return g_motor_driver_reg.encoder_10ms_left; }
+int16_t motor_get_encoder_10ms_right(void) { return g_motor_driver_reg.encoder_10ms_right; }
+
+uint8_t  motor_get_comm_status(void)         { return g_motor_driver_reg.comm_status; }
+uint8_t  motor_get_motor_type(void)          { return g_motor_driver_reg.motor_type; }
+uint16_t motor_get_pulse_line(void)          { return g_motor_driver_reg.pulse_line; }
+uint16_t motor_get_reduction_ratio(void)     { return g_motor_driver_reg.reduction_ratio; }
+float    motor_get_wheel_diameter(void)      { return g_motor_driver_reg.wheel_diameter; }
+uint16_t motor_get_deadzone(void)            { return g_motor_driver_reg.deadzone; }
+bool     motor_is_initialized(void)          { return g_motor_driver_reg.initialized; }
+
+/* ── Write access (Proxy only) ── */
+
+void motor_set_encoder_left(int32_t val)   { g_motor_driver_reg.encoder_total_left = val; }
+void motor_set_encoder_right(int32_t val)  { g_motor_driver_reg.encoder_total_right = val; }
+void motor_set_encoder_10ms_left(int16_t val)  { g_motor_driver_reg.encoder_10ms_left = val; }
+void motor_set_encoder_10ms_right(int16_t val) { g_motor_driver_reg.encoder_10ms_right = val; }
+
+void motor_set_comm_status(uint8_t status)   { g_motor_driver_reg.comm_status = status; }
+void motor_set_motor_type(uint8_t val)       { g_motor_driver_reg.motor_type = val; }
+void motor_set_pulse_line(uint16_t val)      { g_motor_driver_reg.pulse_line = val; }
+void motor_set_reduction_ratio(uint16_t val) { g_motor_driver_reg.reduction_ratio = val; }
+void motor_set_wheel_diameter(float val)     { g_motor_driver_reg.wheel_diameter = val; }
+void motor_set_deadzone(uint16_t val)        { g_motor_driver_reg.deadzone = val; }
+void motor_set_initialized(bool val)         { g_motor_driver_reg.initialized = val; }

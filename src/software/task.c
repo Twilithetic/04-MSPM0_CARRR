@@ -14,11 +14,20 @@
 #include "include/led_reg.h"
 #include "include/XDS110_cdc.h"
 #include "include/imu_shadow.h"           /* shadow register accessors */
+#include "include/motor_driver_reg.h"     /* motor driver shadow */
 
 /* I2C functions (in src/driver/chip/I2C_test.c) */
 extern void i2c_test_init(void);
 extern void i2c_scan_bus(void);
 extern void i2c_scan_print_results(void);
+
+/* Motor Driver Proxy (in src/driver/board/motor_driver.c) */
+extern bool motor_driver_init(void);
+extern void sync_encoder_from_device(MotorDriverReg *r);
+extern bool cmd_config_tt_encoder(MotorDriverReg *r);
+extern void flush_speed_to_device(MotorDriverReg *r);
+extern void flush_pwm_to_device(MotorDriverReg *r);
+extern void flush_stop_to_device(MotorDriverReg *r);
 
 /* IMU Proxy (in src/driver/board/LSM6DSV16X.c) */
 extern bool lsm6dsv16x_is_present(void);
@@ -118,17 +127,80 @@ void vLoggerTask(void *pvParameters)
         int16_t  pitch = imu_get_pitch_deg100();
         int16_t  roll  = imu_get_roll_deg100();
 
+        /* Motor encoder data (from motor sync task @ 10ms) */
+        int16_t enc_left  = motor_get_encoder_10ms_left();
+        int16_t enc_right = motor_get_encoder_10ms_right();
+
         int n = snprintf(buf, sizeof(buf),
-                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u yaw:%7.2f°\r\n",
+                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u yaw:%7.2f° | enc L:%d R:%d\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
                          (unsigned int) qps,
-                         (double) yaw   / 100.0);
+                         (double) yaw   / 100.0,
+                         (int) enc_left, (int) enc_right);
 
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
         }
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
+    }
+}
+
+/* ── Motor Init Task (prio 2): one-shot config then delete ── */
+void vMotorInitTask(void *pvParameters)
+{
+    (void) pvParameters;
+
+    /* Init GPIO bit-bang I2C pins */
+    motor_driver_init();
+
+    /* Run the TT encoder config sequence */
+    bool ok = cmd_config_tt_encoder(&g_motor_driver_reg);
+
+    if (ok) {
+        char buf[64];
+        int n = snprintf(buf, sizeof(buf),
+                         "Motor init OK: type=%u enc=%u ratio=%u dia=%.1fmm dz=%u\r\n",
+                         (unsigned int) motor_get_motor_type(),
+                         (unsigned int) motor_get_pulse_line(),
+                         (unsigned int) motor_get_reduction_ratio(),
+                         (double) motor_get_wheel_diameter(),
+                         (unsigned int) motor_get_deadzone());
+        if (n > 0 && (size_t) n < sizeof(buf)) {
+            uart_send_async((const uint8_t *) buf, (size_t) n, 0);
+        }
+    } else {
+        char buf[48];
+        int n = snprintf(buf, sizeof(buf),
+                         "Motor init FAIL: err_step=0x%02X\r\n",
+                         (unsigned int) motor_get_comm_status());
+        if (n > 0 && (size_t) n < sizeof(buf)) {
+            uart_send_async((const uint8_t *) buf, (size_t) n, 0);
+        }
+    }
+
+    vTaskDelete(NULL);
+}
+
+/* ── Motor Sync Task (prio 3): periodic encoder read @ 10ms ── */
+void vMotorSyncTask(void *pvParameters)
+{
+    (void) pvParameters;
+
+    /* Wait ~500ms for motor init to complete */
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    if (!motor_is_initialized()) {
+        vTaskDelete(NULL);
+    }
+
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+
+    for (;;) {
+        /* sync: read I2C encoders → write shadow register */
+        sync_encoder_from_device(&g_motor_driver_reg);
+
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }
