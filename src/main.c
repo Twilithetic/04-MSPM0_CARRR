@@ -68,7 +68,7 @@ int main(void)
                           NULL,        2,          NULL);
     configASSERT(xReturn == pdPASS);
 
-    xReturn = xTaskCreate(vMotorSyncTask, "MotorSync", configMINIMAL_STACK_SIZE * 2,
+    xReturn = xTaskCreate(vMotorSyncTask, "MotorSync", configMINIMAL_STACK_SIZE * 4,
                           NULL,        3,          NULL);
     configASSERT(xReturn == pdPASS);
 

@@ -168,8 +168,8 @@ bool lsm6dsv16x_init(void)
 
     /* ── 2. Soft reset + wait ── */
     lsm6dsv16x_sw_reset(&g_imu_ctx);
-    for (volatile uint32_t d = 4800000U; d; d--) { __asm__ volatile(""); }
-
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    
     /* ── 3. Basic config ── */
     lsm6dsv16x_block_data_update_set(&g_imu_ctx, PROPERTY_ENABLE);
     lsm6dsv16x_xl_full_scale_set(&g_imu_ctx, LSM6DSV16X_16g);
