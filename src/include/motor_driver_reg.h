@@ -34,6 +34,8 @@ typedef struct {
     volatile int32_t encoder_total_right;  // ticks, accumulated (M2)
     volatile int16_t encoder_10ms_left;    // ticks/10ms, delta (M4)
     volatile int16_t encoder_10ms_right;   // ticks/10ms, delta (M2)
+    volatile int16_t speed_left;           // actual speed (M4), from $MSPD
+    volatile int16_t speed_right;          // actual speed (M2), from $MSPD
     volatile uint8_t  comm_status;         // 0 = OK, >0 = error step
 
     /* ---- Config readback (sync_encoder_from_device) ---- */
@@ -61,8 +63,10 @@ extern MotorDriverReg g_motor_driver_reg;
 
 int32_t motor_get_encoder_left(void);
 int32_t motor_get_encoder_right(void);
-int16_t motor_get_encoder_10ms_left(void);
+    int16_t motor_get_encoder_10ms_left(void);
 int16_t motor_get_encoder_10ms_right(void);
+int16_t motor_get_speed_left(void);
+int16_t motor_get_speed_right(void);
 uint8_t  motor_get_comm_status(void);
 uint8_t  motor_get_motor_type(void);
 uint16_t motor_get_pulse_line(void);
@@ -91,6 +95,8 @@ void motor_set_encoder_left(int32_t val);
 void motor_set_encoder_right(int32_t val);
 void motor_set_encoder_10ms_left(int16_t val);
 void motor_set_encoder_10ms_right(int16_t val);
+void motor_set_speed_left(int16_t val);
+void motor_set_speed_right(int16_t val);
 void motor_set_comm_status(uint8_t status);
 void motor_set_motor_type(uint8_t val);
 void motor_set_pulse_line(uint16_t val);

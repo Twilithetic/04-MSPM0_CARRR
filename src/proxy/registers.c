@@ -384,6 +384,8 @@ int32_t motor_get_encoder_left(void)  { return g_motor_driver_reg.encoder_total_
 int32_t motor_get_encoder_right(void) { return g_motor_driver_reg.encoder_total_right; }
 int16_t motor_get_encoder_10ms_left(void)  { return g_motor_driver_reg.encoder_10ms_left; }
 int16_t motor_get_encoder_10ms_right(void) { return g_motor_driver_reg.encoder_10ms_right; }
+int16_t motor_get_speed_left(void)         { return g_motor_driver_reg.speed_left; }
+int16_t motor_get_speed_right(void)        { return g_motor_driver_reg.speed_right; }
 
 uint8_t  motor_get_comm_status(void)         { return g_motor_driver_reg.comm_status; }
 uint8_t  motor_get_motor_type(void)          { return g_motor_driver_reg.motor_type; }
@@ -399,6 +401,8 @@ void motor_set_encoder_left(int32_t val)   { g_motor_driver_reg.encoder_total_le
 void motor_set_encoder_right(int32_t val)  { g_motor_driver_reg.encoder_total_right = val; }
 void motor_set_encoder_10ms_left(int16_t val)  { g_motor_driver_reg.encoder_10ms_left = val; }
 void motor_set_encoder_10ms_right(int16_t val) { g_motor_driver_reg.encoder_10ms_right = val; }
+void motor_set_speed_left(int16_t val)         { g_motor_driver_reg.speed_left = val; }
+void motor_set_speed_right(int16_t val)        { g_motor_driver_reg.speed_right = val; }
 
 void motor_set_comm_status(uint8_t status)   { g_motor_driver_reg.comm_status = status; }
 void motor_set_motor_type(uint8_t val)       { g_motor_driver_reg.motor_type = val; }

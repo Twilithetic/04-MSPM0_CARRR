@@ -258,6 +258,10 @@ bool cmd_config_tt_encoder(MotorDriverReg *r)
     motor_send_cmd_nowait("$mphase:45#", 100);
     motor_send_cmd_nowait("$wdiameter:67#", 100);
 
+    /* Enable all three upload streams at once:
+     *   MAll = total encoder, MTEP = 10ms delta, MSPD = speed */
+    motor_send_cmd_nowait("$upload:1,1,1#", 100);
+
     /* Verify with read_vol */
     const char *resp = motor_send_cmd("$read_vol#", 200);
     if (!resp || !*resp) return false;
@@ -280,20 +284,46 @@ uint16_t motor_read_battery_voltage(void)
 
 void sync_encoder_from_device(MotorDriverReg *r)
 {
-    /* Enable 10ms encoder upload */
-    motor_send_cmd_nowait("$upload:0,1,0#", 0);
+    /*
+     * Drain ALL pending frames.  $upload:1,1,1# (sent in cmd_config_tt_encoder)
+     * causes the driver board to send three frames every 10 ms automatically:
+     *   $MAll:...  $MTEP:...  $MSPD:...
+     * Each call reads up to 5 frames (safety cap), stopping when no more '$'
+     * is immediately available.
+     */
+    bool got_data = false;
 
-    /* Read back the frame — it comes asynchronously every 10ms */
-    const char *resp = motor_uart_recv_frame(100);
-    if (!resp || !*resp) { r->comm_status = 0xFF; return; }
+    for (int i = 0; i < 5; i++) {
+        const char *resp = motor_uart_recv_frame(1); /* 1 tick timeout */
+        if (!resp || !*resp) break;
 
-    int16_t m1 = 0, m2 = 0, m3 = 0, m4 = 0;
-    if (sscanf(resp, "MTEP:%hd,%hd,%hd,%hd", &m1, &m2, &m3, &m4) < 4)
-        { r->comm_status = 0xFE; return; }
+        int16_t m[4] = {0};
 
-    r->encoder_10ms_left  = m2;
-    r->encoder_10ms_right = m4;
-    r->comm_status = 0;
+        if (strncmp(resp, "MAll:", 5) == 0) {
+            if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
+                       &m[0], &m[1], &m[2], &m[3]) >= 4) {
+                r->encoder_total_left  = (int32_t)m[1]; /* M2=LEFT in project mapping */
+                r->encoder_total_right = (int32_t)m[3]; /* M4=RIGHT */
+                got_data = true;
+            }
+        } else if (strncmp(resp, "MTEP:", 5) == 0) {
+            if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
+                       &m[0], &m[1], &m[2], &m[3]) >= 4) {
+                r->encoder_10ms_left  = m[1]; /* M2=LEFT */
+                r->encoder_10ms_right = m[3]; /* M4=RIGHT */
+                got_data = true;
+            }
+        } else if (strncmp(resp, "MSPD:", 5) == 0) {
+            if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
+                       &m[0], &m[1], &m[2], &m[3]) >= 4) {
+                r->speed_left  = m[1]; /* M2=LEFT */
+                r->speed_right = m[3]; /* M4=RIGHT */
+                got_data = true;
+            }
+        }
+    }
+
+    r->comm_status = got_data ? 0 : 0xFE;
 }
 
 void sync_config_from_device(MotorDriverReg *r) { (void)r; }
