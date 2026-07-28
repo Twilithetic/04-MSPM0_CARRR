@@ -236,8 +236,9 @@ bool motor_driver_init(void)
     if (!motor_uart_init()) return false;
 
     /* Stop motors */
-    motor_send_cmd_nowait("$pwm:0,0,0,0#", 50);
-    motor_send_cmd_nowait("$spd:0,100,0,-50#", 50);
+    motor_send_cmd_nowait("$spd:0,0,0,0#", 50);
+    motor_send_cmd_nowait("$pwm:0,500,0,500#", 50);
+    
 
     /* Health check — this one returns a response */
     const char *resp = motor_send_cmd("$read_vol#", 200);
@@ -292,6 +293,7 @@ void sync_encoder_from_device(MotorDriverReg *r)
      * is immediately available.
      */
     bool got_data = false;
+    uint16_t n_frames = 0;
 
     for (int i = 0; i < 5; i++) {
         const char *resp = motor_uart_recv_frame(1); /* 1 tick timeout */
@@ -302,27 +304,28 @@ void sync_encoder_from_device(MotorDriverReg *r)
         if (strncmp(resp, "MAll:", 5) == 0) {
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
-                r->encoder_total_left  = (int32_t)m[1]; /* M2=LEFT in project mapping */
+                r->encoder_total_left  = (int32_t)m[1]; /* M2=LEFT */
                 r->encoder_total_right = (int32_t)m[3]; /* M4=RIGHT */
-                got_data = true;
+                got_data = true; n_frames++;
             }
         } else if (strncmp(resp, "MTEP:", 5) == 0) {
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
                 r->encoder_10ms_left  = m[1]; /* M2=LEFT */
                 r->encoder_10ms_right = m[3]; /* M4=RIGHT */
-                got_data = true;
+                got_data = true; n_frames++;
             }
         } else if (strncmp(resp, "MSPD:", 5) == 0) {
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
                 r->speed_left  = m[1]; /* M2=LEFT */
                 r->speed_right = m[3]; /* M4=RIGHT */
-                got_data = true;
+                got_data = true; n_frames++;
             }
         }
     }
 
+    r->sync_count += n_frames;
     r->comm_status = got_data ? 0 : 0xFE;
 }
 

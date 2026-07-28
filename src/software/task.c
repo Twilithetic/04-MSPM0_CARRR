@@ -151,14 +151,16 @@ void vLoggerTask(void *pvParameters)
         int16_t spd_right = motor_get_speed_right();
         int32_t tot_left  = motor_get_encoder_left();
         int32_t tot_right = motor_get_encoder_right();
+        uint16_t msync    = motor_get_sync_rate();
 
         int n = snprintf(buf, sizeof(buf),
-                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u yaw:%7.2f° | "
+                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u msync:%-3u yaw:%7.2f° | "
                          "enc L:%d R:%d | spd L:%d R:%d | total L:%ld R:%ld\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
                          (unsigned int) qps,
+                         (unsigned int) msync,
                          (double) yaw   / 100.0,
                          (int) enc_left, (int) enc_right,
                          (int) spd_left, (int) spd_right,

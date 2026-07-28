@@ -53,6 +53,12 @@ typedef struct {
 
     /* flags */
     volatile bool    initialized;          // true after init succeeds
+
+    /* sync statistics (qps-style) */
+    volatile uint16_t sync_count;         // total frame count since init
+    volatile uint32_t last_sync_tick;     // FreeRTOS tick of last rate snap
+    volatile uint16_t last_sync_count;    // sync_count at last snap
+    volatile uint16_t sync_rate;          // frames/second, computed
 } MotorDriverReg;
 
 extern MotorDriverReg g_motor_driver_reg;
@@ -74,6 +80,7 @@ uint16_t motor_get_reduction_ratio(void);
 float    motor_get_wheel_diameter(void);
 uint16_t motor_get_deadzone(void);
 bool     motor_is_initialized(void);
+uint16_t motor_get_sync_rate(void);       /* frames/sec from sync_encoder_from_device */
 
 /* ================================================================
  *  I2C health check (motor_driver.c)

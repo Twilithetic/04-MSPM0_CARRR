@@ -395,6 +395,20 @@ float    motor_get_wheel_diameter(void)      { return g_motor_driver_reg.wheel_d
 uint16_t motor_get_deadzone(void)            { return g_motor_driver_reg.deadzone; }
 bool     motor_is_initialized(void)          { return g_motor_driver_reg.initialized; }
 
+uint16_t motor_get_sync_rate(void)
+{
+    uint32_t now = xTaskGetTickCount();
+    uint32_t dt  = now - g_motor_driver_reg.last_sync_tick;
+    uint16_t ds  = g_motor_driver_reg.sync_count - g_motor_driver_reg.last_sync_count;
+
+    g_motor_driver_reg.last_sync_tick  = now;
+    g_motor_driver_reg.last_sync_count = g_motor_driver_reg.sync_count;
+
+    if (dt == 0) return 0;
+    /* rate = ds * 1000 / dt  (dt in ms) */
+    return (uint16_t)(((uint32_t)ds * 1000U) / dt);
+}
+
 /* ── Write access (Proxy only) ── */
 
 void motor_set_encoder_left(int32_t val)   { g_motor_driver_reg.encoder_total_left = val; }
