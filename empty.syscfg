@@ -13,7 +13,6 @@
 const GPIO   = scripting.addModule("/ti/driverlib/GPIO", {}, false);
 const GPIO1  = GPIO.addInstance();
 const GPIO2  = GPIO.addInstance();
-const GPIO3  = GPIO.addInstance();
 const GPIO4  = GPIO.addInstance();
 const GPIO5  = GPIO.addInstance();
 const SYSCTL = scripting.addModule("/ti/driverlib/SYSCTL");
@@ -48,43 +47,19 @@ GPIO2.associatedPins[0].direction        = "INPUT";
 GPIO2.associatedPins[0].internalResistor = "PULL_DOWN";
 GPIO2.associatedPins[0].assignedPin      = "18";
 
-GPIO3.$name                              = "GRAY";
-GPIO3.port                               = "PORTA";
-GPIO3.associatedPins.create(5);
-GPIO3.associatedPins[0].$name            = "S1";
-GPIO3.associatedPins[0].direction        = "INPUT";
-GPIO3.associatedPins[0].internalResistor = "PULL_DOWN";
-GPIO3.associatedPins[0].assignedPin      = "14";
-GPIO3.associatedPins[1].$name            = "S2";
-GPIO3.associatedPins[1].direction        = "INPUT";
-GPIO3.associatedPins[1].internalResistor = "PULL_DOWN";
-GPIO3.associatedPins[1].assignedPin      = "15";
-GPIO3.associatedPins[2].$name            = "S3";
-GPIO3.associatedPins[2].direction        = "INPUT";
-GPIO3.associatedPins[2].internalResistor = "PULL_DOWN";
-GPIO3.associatedPins[2].assignedPin      = "16";
-GPIO3.associatedPins[3].$name            = "S4";
-GPIO3.associatedPins[3].direction        = "INPUT";
-GPIO3.associatedPins[3].internalResistor = "PULL_DOWN";
-GPIO3.associatedPins[3].assignedPin      = "17";
-GPIO3.associatedPins[4].$name            = "S5";
-GPIO3.associatedPins[4].direction        = "INPUT";
-GPIO3.associatedPins[4].internalResistor = "PULL_DOWN";
-GPIO3.associatedPins[4].assignedPin      = "21";
-
 GPIO4.$name                              = "MOTOR_I2C";
 GPIO4.port                               = "PORTA";
 GPIO4.associatedPins.create(2);
-GPIO4.associatedPins[0].$name            = "SDA";
+GPIO4.associatedPins[0].$name            = "SCL";
 GPIO4.associatedPins[0].direction        = "OUTPUT";
 GPIO4.associatedPins[0].internalResistor = "PULL_UP";
 GPIO4.associatedPins[0].initialValue     = "SET";
-GPIO4.associatedPins[0].assignedPin      = "13";
-GPIO4.associatedPins[1].$name            = "SCL";
+GPIO4.associatedPins[0].assignedPin      = "15";   /* PA15 = SCL */
+GPIO4.associatedPins[1].$name            = "SDA";
 GPIO4.associatedPins[1].direction        = "OUTPUT";
 GPIO4.associatedPins[1].internalResistor = "PULL_UP";
 GPIO4.associatedPins[1].initialValue     = "SET";
-GPIO4.associatedPins[1].assignedPin      = "12";
+GPIO4.associatedPins[1].assignedPin      = "16";   /* PA16 = SDA */
 
 SYSCTL.forceDefaultClkConfig = true;
 SYSCTL.clockTreeEn           = true;

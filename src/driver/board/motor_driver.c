@@ -31,14 +31,16 @@
 
 /* ====================================================================
  *  GPIO Bit-Bang I2C Pin Definitions
- *  PA15 = SCL  (output), PA16 = SDA  (open-drain emulation via input/output switch)
+ *
+ *  SysConfig generates MOTOR_I2C_SCL_PIN / MOTOR_I2C_SDA_PIN etc.
+ *  in ti_msp_dl_config.h.  Use those macros directly.
  * ==================================================================== */
 
-#define I2C_PORT              GPIOA
-#define I2C_SCL_PIN           DL_GPIO_PIN_15    /* PA15 */
-#define I2C_SDA_PIN           DL_GPIO_PIN_16    /* PA16 */
-#define I2C_SCL_IOMUX         IOMUX_PINCM16      /* PA15 */
-#define I2C_SDA_IOMUX         IOMUX_PINCM17      /* PA16 */
+#define I2C_PORT              MOTOR_I2C_PORT          /* GPIOA */
+#define I2C_SCL_PIN           MOTOR_I2C_SCL_PIN       /* DL_GPIO_PIN_15 */
+#define I2C_SDA_PIN           MOTOR_I2C_SDA_PIN       /* DL_GPIO_PIN_16 */
+#define I2C_SCL_IOMUX         MOTOR_I2C_SCL_IOMUX     /* IOMUX_PINCM37 */
+#define I2C_SDA_IOMUX         MOTOR_I2C_SDA_IOMUX     /* IOMUX_PINCM38 */
 
 /* ---- GPIO helpers (emulate open-drain SDA via direction switching) ---- */
 
@@ -57,6 +59,9 @@
 
 /* ---- Simple microsecond delay (spin-loop, 32 MHz SYSOSC) ---- */
 #define DELAY_US(us)  delay_cycles((uint32_t)(us) * 32U)
+
+/* Use SysConfig-generated pin definitions (ti_msp_dl_config.h) */
+#include "ti_msp_dl_config.h"
 
 /* ====================================================================
  *  Constants
@@ -500,21 +505,13 @@ bool cmd_config_tt_encoder(MotorDriverReg *r)
  * ==================================================================== */
 
 /*
- *  motor_driver_init: Initialise GPIO pins for bit-bang I2C, send stop command
- *  to all motors.
- *
- *  We use GPIO bit-bang (not hardware I2C1), so there is no I2C_Handle.
- *  Returns true on success (always succeeds — GPIO init cannot fail).
+ *  motor_driver_init: GPIO pins are already configured by SYSCFG_DL_init()
+ *  (SysConfig GPIO4 MOTOR_I2C: PA15/SCL + PA16/SDA, OUTPUT, PULL_UP, SET).
+ *  We just send stop to all motors.
  */
 bool motor_driver_init(void)
 {
-    /* ── 1. Configure PA15 (SCL) and PA16 (SDA) as digital outputs ── */
-    DL_GPIO_initDigitalOutput(I2C_SCL_IOMUX);
-    DL_GPIO_initDigitalOutput(I2C_SDA_IOMUX);
-    DL_GPIO_setPins(I2C_PORT, I2C_SCL_PIN | I2C_SDA_PIN);
-    DL_GPIO_enableOutput(I2C_PORT, I2C_SCL_PIN | I2C_SDA_PIN);
-
-    /* ── 2. Stop all motors (write zero speed + PWM) ── */
+    /* ── Stop all motors (write zero speed + PWM) ── */
     {
         uint8_t stop_buf[8] = {0};
         (void) raw_write_reg(REG_SPEED_CONTROL, stop_buf, 8);
