@@ -9,7 +9,10 @@
  *  Pin mapping (from SysConfig MOTOR_I2C in ti_msp_dl_config.h):
  *    PA15 = SCL, PA16 = SDA
  *
- *  Delay: vTaskDelay(pdMS_TO_TICKS(1)) — 1ms minimum for FreeRTOS.
+ *  Both pins are configured as open-drain (hiZ=ENABLE) in SysConfig:
+ *    setPins → DOUT=1, pin Hi-Z, floats HIGH via pull-up
+ *    clearPins → DOUT=0, pin actively drives LOW
+ *  This allows the slave to pull SDA LOW for ACK / data bits.
  */
 
 #include "ti_msp_dl_config.h"

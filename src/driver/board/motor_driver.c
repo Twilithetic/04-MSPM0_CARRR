@@ -48,6 +48,9 @@ extern void I2C_SendAck_Done(void);
 #define REG_SPEED_CONTROL       0x06U
 #define REG_PWM_CONTROL         0x07U
 
+/* Read registers — battery voltage (for I2C health check) */
+#define REG_BATTERY_VOLTAGE     0x08U
+
 /* Read registers — 10ms encoder deltas */
 #define REG_ENC_10MS_M1         0x10U
 #define REG_ENC_10MS_M2         0x11U
@@ -254,4 +257,17 @@ bool motor_driver_init(void)
     (void) raw_write_reg(REG_SPEED_CONTROL, stop_buf, 8);
     (void) raw_write_reg(REG_PWM_CONTROL, stop_buf, 8);
     return true;
+}
+
+/*
+ *  Read battery voltage from motor driver board (register 0x08).
+ *  Returns voltage in 0.1V units (e.g. 74 = 7.4V), or 0 if I2C read failed.
+ *  This serves as an I2C health check — if communication is working, the
+ *  board will ACK and return valid data.
+ */
+uint16_t motor_read_battery_voltage(void)
+{
+    uint8_t buf[2] = {0};
+    if (!raw_read_reg(REG_BATTERY_VOLTAGE, buf, 2)) { return 0; }
+    return (uint16_t)(((uint16_t)buf[0] << 8) | (uint16_t)buf[1]);
 }

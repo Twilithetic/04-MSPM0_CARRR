@@ -28,6 +28,7 @@ extern bool cmd_config_tt_encoder(MotorDriverReg *r);
 extern void flush_speed_to_device(MotorDriverReg *r);
 extern void flush_pwm_to_device(MotorDriverReg *r);
 extern void flush_stop_to_device(MotorDriverReg *r);
+extern uint16_t motor_read_battery_voltage(void);
 
 /* IMU Proxy (in src/driver/board/LSM6DSV16X.c) */
 extern bool lsm6dsv16x_is_present(void);
@@ -126,6 +127,21 @@ void vLoggerTask(void *pvParameters)
     /* Wait for motor init to finish before printing encoder data */
     xSemaphoreTake(g_motorDoneSem, portMAX_DELAY);
 
+    /* Read battery voltage (I2C health check) and print */
+    {
+        uint16_t raw = motor_read_battery_voltage();
+        char buf[64];
+        int n = snprintf(buf, sizeof(buf),
+                         "Motor battery: %u.%uV\r\n",
+                         (unsigned int)(raw / 10U),
+                         (unsigned int)(raw % 10U));
+        if (n > 0 && (size_t) n < sizeof(buf)) {
+            uart_send_async((const uint8_t *) buf, (size_t) n, 0);
+        }
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(100));
+
     for (;;) {
         char buf[UART_TX_BUF_SIZE];
         unsigned long ticks = xTaskGetTickCount();
@@ -161,7 +177,7 @@ void vLoggerTask(void *pvParameters)
 void vMotorInitTask(void *pvParameters)
 {
     (void) pvParameters;
-
+    // vTaskDelay(pdMS_TO_TICKS(500));// 等那些芯片先启动
     /* Init GPIO bit-bang I2C pins */
     motor_driver_init();
 

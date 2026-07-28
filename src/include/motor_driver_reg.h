@@ -72,6 +72,12 @@ uint16_t motor_get_deadzone(void);
 bool     motor_is_initialized(void);
 
 /* ================================================================
+ *  I2C health check (motor_driver.c)
+ * ================================================================ */
+
+uint16_t motor_read_battery_voltage(void);
+
+/* ================================================================
  *  Write access (Proxy only — declared for registers.c linkage)
  * ================================================================ */
 

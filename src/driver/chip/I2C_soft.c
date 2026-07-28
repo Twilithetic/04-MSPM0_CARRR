@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// ---- 前置声明 ----
+void I2C_Stop(void);
+
 // ---- 弱函数跨平台兼容（兼容 Keil __weak / GCC+tiarmclang __attribute__((weak))） ----
 #ifndef __weak
 #define __weak __attribute__((weak))
@@ -60,19 +63,33 @@ void I2C_SendByte(uint8_t byte){
 
 
 /// @brief 主机接受从机确认收到字节的应答 主机的每个字节发送完成后，主机会释放SDA（SDA置1），如果从机按约定在此时拉低（SDA置0），并且主机发现有人拉低了，那么主机发送的字节就确认被收到了
-/// @param  
+/// @param
 /// @return  如果确认收到了(此时AckBit == 0)，会返回True（stdbool.h提供），由于!AckBit
 bool I2C_ReceiveAck(void){
+    uint8_t ack_flag = 10;
+
     I2C_SCL_Clr();
     I2C_delay_us(1);
-    I2C_SDA_Set();// 释放SDA
+    I2C_SDA_Set();  /* release SDA (Hi-Z) so slave can pull LOW */
     I2C_delay_us(1);
-    I2C_SCL_Set();// 担心！ 万一在SCL置1时下个指令是置SDA为0 这不成Start时序了吗(。_。) 。其实不担心，下个无非是接受或发送字节的程序，他们都会在发送前将 SCL置0的，但 I2C_SendAck_Continue()就没那么好运了
-    I2C_delay_us(2); // 只是在示波器上好看
-    uint8_t AckBit = I2C_SDA_Read();
-    
-    return !AckBit;
+    I2C_SCL_Set();
+    I2C_delay_us(1);
 
+    /* Wait for slave to pull SDA LOW (ACK), with timeout */
+    while (I2C_SDA_Read() == 1 && ack_flag) {
+        ack_flag--;
+        I2C_delay_us(1);
+    }
+
+    if (ack_flag == 0) {
+        /* Timeout — no ACK */
+        I2C_Stop();
+        return false;
+    }
+
+    I2C_SCL_Clr();
+    I2C_delay_us(1);
+    return true;
 }
 
 
