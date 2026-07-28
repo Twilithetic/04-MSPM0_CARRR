@@ -147,15 +147,22 @@ void vLoggerTask(void *pvParameters)
         /* Motor encoder data (from motor sync task @ 10ms) */
         int16_t enc_left  = motor_get_encoder_10ms_left();
         int16_t enc_right = motor_get_encoder_10ms_right();
+        int16_t spd_left  = motor_get_speed_left();
+        int16_t spd_right = motor_get_speed_right();
+        int32_t tot_left  = motor_get_encoder_left();
+        int32_t tot_right = motor_get_encoder_right();
 
         int n = snprintf(buf, sizeof(buf),
-                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u yaw:%7.2f° | enc L:%d R:%d\r\n",
+                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u yaw:%7.2f° | "
+                         "enc L:%d R:%d | spd L:%d R:%d | total L:%ld R:%ld\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
                          (unsigned int) qps,
                          (double) yaw   / 100.0,
-                         (int) enc_left, (int) enc_right);
+                         (int) enc_left, (int) enc_right,
+                         (int) spd_left, (int) spd_right,
+                         (long) tot_left, (long) tot_right);
 
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
