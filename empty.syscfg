@@ -20,7 +20,6 @@ const GPIO3  = GPIO.addInstance();
 const SYSCTL = scripting.addModule("/ti/driverlib/SYSCTL");
 const UART   = scripting.addModule("/ti/driverlib/UART", {}, false);
 const UART1  = UART.addInstance();
-const UART2  = UART.addInstance();
 
 /**
  * Write custom configuration values to the imported modules.
@@ -71,16 +70,6 @@ UART1.DMA_CHANNEL_TX.addressMode        = "b2f";
 UART1.DMA_CHANNEL_TX.dstLength          = "BYTE";
 UART1.DMA_CHANNEL_TX.srcLength          = "BYTE";
 UART1.DMA_CHANNEL_TX.peripheral.$assign = "DMA_CH0";
-
-/* UART1: Motor driver board (PA8 TX / PA9 RX) */
-UART2.$name              = "UART_1";
-UART2.enableFIFO         = true;
-UART2.targetBaudRate     = 115200;
-UART2.peripheral.$assign = "UART1";
-UART2.peripheral.txPin.$assign = "PA8";
-UART2.peripheral.rxPin.$assign = "PA9";
-UART2.txPinConfig.$name       = "ti_driverlib_gpio_GPIOPinGeneric2";
-UART2.rxPinConfig.$name       = "ti_driverlib_gpio_GPIOPinGeneric3";
 
 const ProjectConfig              = scripting.addModule("/ti/project_config/ProjectConfig", {}, false);
 ProjectConfig.migrationCondition = true;

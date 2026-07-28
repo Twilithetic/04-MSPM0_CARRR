@@ -14,23 +14,14 @@
 #include "include/led_reg.h"
 #include "include/XDS110_cdc.h"
 #include "include/imu_shadow.h"           /* shadow register accessors */
-#include "include/motor_driver_reg.h"     /* motor driver shadow */
+#include "include/motor_driver_uart.h"    /* motor driver proxy */
 
 /* I2C functions (in src/driver/chip/I2C_test.c) */
 extern void i2c_test_init(void);
 extern void i2c_scan_bus(void);
 extern void i2c_scan_print_results(void);
 
-/* Motor Driver Proxy (in src/driver/board/motor_driver_uart.c) */
-extern bool motor_driver_init(void);
-extern void sync_encoder_from_device(MotorDriverReg *r);
-extern bool cmd_config_tt_encoder(MotorDriverReg *r);
-extern void flush_speed_to_device(MotorDriverReg *r);
-extern void flush_pwm_to_device(MotorDriverReg *r);
-extern void flush_stop_to_device(MotorDriverReg *r);
-extern uint16_t motor_read_battery_voltage(void);
-
-/* IMU Proxy (in src/driver/board/LSM6DSV16X.c) */
+/* Motor Driver Proxy — see motor_driver_uart.h */
 extern bool lsm6dsv16x_is_present(void);
 extern bool lsm6dsv16x_init(void);
 extern void lsm6dsv16x_sync_from_device(void);
@@ -150,8 +141,8 @@ void vLoggerTask(void *pvParameters)
 
         uint16_t qps   = imu_get_qps();
         int16_t  yaw   = imu_get_yaw_deg100();
-        int16_t  pitch = imu_get_pitch_deg100();
-        int16_t  roll  = imu_get_roll_deg100();
+        (void) imu_get_pitch_deg100();
+        (void) imu_get_roll_deg100();
 
         /* Motor encoder data (from motor sync task @ 10ms) */
         int16_t enc_left  = motor_get_encoder_10ms_left();
@@ -178,7 +169,7 @@ void vMotorInitTask(void *pvParameters)
 {
     (void) pvParameters;
 
-    /* Init UART1 (already done by SYSCFG_DL_init) and send stop commands */
+    /* Init UART1 + send stop commands (motor_driver_init calls motor_uart_init internally) */
     motor_driver_init();
 
     /* Run the TT encoder config sequence */

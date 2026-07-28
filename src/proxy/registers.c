@@ -4,7 +4,6 @@
  *  their full struct layouts, and accessors.
  */
 
-#include "include/motor_reg.h"
 #include "include/motor_driver_reg.h"    /* 4-Way Motor Driver Board shadow */
 #include "include/line_reg.h"
 #include "include/status_reg.h"
@@ -13,13 +12,11 @@
 #include "include/imu_shadow.h"           /* shadow type + accessors */
 #include "include/lsm6dsv16x_reg.h"       /* ST official register / bit defs */
 
+#include <FreeRTOS.h>
+#include <task.h>
+
 #include <stdbool.h>
 #include <stdint.h>
-
-// =====================================================================
-//  MotorReg   (full definition in motor_reg.h — not changed)
-// =====================================================================
-MotorReg  g_motor_reg  = {0};
 
 // =====================================================================
 //  LineReg    (full definition in line_reg.h — not changed)

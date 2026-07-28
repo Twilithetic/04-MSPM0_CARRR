@@ -3,8 +3,8 @@
  *  4-Way Motor Driver Board — shadow register types.
  *
  *  Data flow:
- *    sync_from_device -> motor proxy (I2C read)  writes these fields
- *    flush_to_device  -> motor proxy (I2C write) reads  target_* fields
+ *    sync_encoder_from_device -> motor proxy (UART read)  writes these fields
+ *    flush_*_to_device        -> motor proxy (UART write) reads  target_* fields
  *
  *  One global instance: g_motor_driver_reg (defined in src/proxy/registers.c)
  */
@@ -29,21 +29,21 @@ extern "C" {
  *  M_RIGHT  = M2 on the 4-way board
  */
 typedef struct {
-    /* sync_from_device: updated by motor proxy reading I2C ---- */
-    volatile int32_t encoder_total_left;   // ticks, accumulated (M2)
-    volatile int32_t encoder_total_right;  // ticks, accumulated (M4)
-    volatile int16_t encoder_10ms_left;    // ticks/10ms, delta (M2)
-    volatile int16_t encoder_10ms_right;   // ticks/10ms, delta (M4)
-    volatile uint8_t  comm_status;         // 0 = OK, >0 = I2C error step
+    /* sync_encoder_from_device: updated by motor proxy reading UART ---- */
+    volatile int32_t encoder_total_left;   // ticks, accumulated (M4)
+    volatile int32_t encoder_total_right;  // ticks, accumulated (M2)
+    volatile int16_t encoder_10ms_left;    // ticks/10ms, delta (M4)
+    volatile int16_t encoder_10ms_right;   // ticks/10ms, delta (M2)
+    volatile uint8_t  comm_status;         // 0 = OK, >0 = error step
 
-    /* ---- Config readback (sync_from_device) ---- */
+    /* ---- Config readback (sync_encoder_from_device) ---- */
     volatile uint8_t  motor_type;          // 3 = TT encoder
     volatile uint16_t pulse_line;          // encoder lines per revolution (13)
     volatile uint16_t reduction_ratio;     // gear reduction ratio * 1 (45)
     volatile float    wheel_diameter;      // mm (67.0)
     volatile uint16_t deadzone;            // PWM deadzone threshold (1250)
 
-    /* flush_to_device: written by controller, flushed by motor proxy ---- */
+    /* flush_*_to_device: written by controller, flushed by motor proxy ---- */
     volatile int16_t target_speed_left;    // M2 target speed
     volatile int16_t target_speed_right;   // M4 target speed
     volatile int16_t target_pwm_left;      // M2 target PWM
