@@ -29,6 +29,9 @@ SemaphoreHandle_t g_scanDoneSem = NULL;
 /* ---- Semaphore: motor init done → Logger can read encoder data ---- */
 SemaphoreHandle_t g_motorDoneSem = NULL;
 
+/* ---- Semaphore: motor init done → MotorSync can start periodic sync ---- */
+SemaphoreHandle_t g_motorSyncSem = NULL;
+
 int main(void)
 {
     /* ---- Hardware init ---- */
@@ -44,6 +47,10 @@ int main(void)
     /* Binary semaphore: motor init done → Logger can safely print encoder data.
      * Initial 0 — Logger blocks until vMotorInitTask gives it. */
     g_motorDoneSem = xSemaphoreCreateBinary();
+
+    /* Binary semaphore: motor init done → MotorSync can start periodic sync.
+     * Initial 0 — MotorSync blocks until vMotorInitTask gives it. */
+    g_motorSyncSem = xSemaphoreCreateBinary();
 
     /* ---- Create application tasks ---- */
     BaseType_t xReturn;

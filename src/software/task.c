@@ -42,6 +42,7 @@ extern void lsm6dsv16x_sync_from_device(void);
 /* ---- Semaphore (created in main.c before scheduler starts) ---- */
 extern SemaphoreHandle_t g_scanDoneSem;
 extern SemaphoreHandle_t g_motorDoneSem;
+extern SemaphoreHandle_t g_motorSyncSem;
 
 /* ── Blue LED blink ── */
 void vBlueTask(void *pvParameters)
@@ -192,6 +193,9 @@ void vMotorInitTask(void *pvParameters)
     /* Release Logger — motor init is done, encoder data is safe to read */
     xSemaphoreGive(g_motorDoneSem);
 
+    /* Release MotorSync — motor init is done, sync can start */
+    xSemaphoreGive(g_motorSyncSem);
+
     vTaskDelete(NULL);
 }
 
@@ -200,8 +204,8 @@ void vMotorSyncTask(void *pvParameters)
 {
     (void) pvParameters;
 
-    /* Wait ~500ms for motor init to complete */
-    vTaskDelay(pdMS_TO_TICKS(500));
+    /* Wait for motor init to complete (signaled by vMotorInitTask) */
+    xSemaphoreTake(g_motorSyncSem, portMAX_DELAY);
 
     if (!motor_is_initialized()) {
         vTaskDelete(NULL);
