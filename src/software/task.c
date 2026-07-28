@@ -21,7 +21,7 @@ extern void i2c_test_init(void);
 extern void i2c_scan_bus(void);
 extern void i2c_scan_print_results(void);
 
-/* Motor Driver Proxy (in src/driver/board/motor_driver.c) */
+/* Motor Driver Proxy (in src/driver/board/motor_driver_uart.c) */
 extern bool motor_driver_init(void);
 extern void sync_encoder_from_device(MotorDriverReg *r);
 extern bool cmd_config_tt_encoder(MotorDriverReg *r);
@@ -127,7 +127,7 @@ void vLoggerTask(void *pvParameters)
     /* Wait for motor init to finish before printing encoder data */
     xSemaphoreTake(g_motorDoneSem, portMAX_DELAY);
 
-    /* Read battery voltage (I2C health check) and print */
+    /* Read battery voltage (UART health check) and print */
     {
         uint16_t raw = motor_read_battery_voltage();
         char buf[64];
@@ -177,8 +177,8 @@ void vLoggerTask(void *pvParameters)
 void vMotorInitTask(void *pvParameters)
 {
     (void) pvParameters;
-    // vTaskDelay(pdMS_TO_TICKS(500));// 等那些芯片先启动
-    /* Init GPIO bit-bang I2C pins */
+
+    /* Init UART1 (already done by SYSCFG_DL_init) and send stop commands */
     motor_driver_init();
 
     /* Run the TT encoder config sequence */
@@ -230,7 +230,7 @@ void vMotorSyncTask(void *pvParameters)
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
     for (;;) {
-        /* sync: read I2C encoders → write shadow register */
+        /* sync: read UART encoders → write shadow register */
         sync_encoder_from_device(&g_motor_driver_reg);
 
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));

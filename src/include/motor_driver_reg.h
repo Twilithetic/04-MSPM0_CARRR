@@ -78,6 +78,12 @@ bool     motor_is_initialized(void);
 uint16_t motor_read_battery_voltage(void);
 
 /* ================================================================
+ *  UART1 direct output (for printf redirection, uart_init.c)
+ * ================================================================ */
+
+void motor_uart_putchar(char c);
+
+/* ================================================================
  *  Write access (Proxy only — declared for registers.c linkage)
  * ================================================================ */
 
