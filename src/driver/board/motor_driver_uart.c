@@ -304,22 +304,22 @@ void sync_encoder_from_device(MotorDriverReg *r)
         if (strncmp(resp, "MAll:", 5) == 0) {
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
-                r->encoder_total_left  = (int32_t)m[1]; /* M2=LEFT */
-                r->encoder_total_right = (int32_t)m[3]; /* M4=RIGHT */
+                r->encoder_total_left  = (int32_t)m[3]; /* M4=LEFT */
+                r->encoder_total_right = (int32_t)m[1]; /* M2=RIGHT */
                 got_data = true; n_frames++;
             }
         } else if (strncmp(resp, "MTEP:", 5) == 0) {
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
-                r->encoder_10ms_left  = m[1]; /* M2=LEFT */
-                r->encoder_10ms_right = m[3]; /* M4=RIGHT */
+                r->encoder_10ms_left  = m[3]; /* M4=LEFT */
+                r->encoder_10ms_right = m[1]; /* M2=RIGHT */
                 got_data = true; n_frames++;
             }
         } else if (strncmp(resp, "MSPD:", 5) == 0) {
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
-                r->speed_left  = m[1]; /* M2=LEFT */
-                r->speed_right = m[3]; /* M4=RIGHT */
+                r->speed_left  = m[3]; /* M4=LEFT */
+                r->speed_right = m[1]; /* M2=RIGHT */
                 got_data = true; n_frames++;
             }
         }

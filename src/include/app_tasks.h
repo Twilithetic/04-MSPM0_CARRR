@@ -16,5 +16,6 @@ void vImuPollTask(void *pvParameters);
 void vLoggerTask(void *pvParameters);
 void vMotorInitTask(void *pvParameters);
 void vMotorSyncTask(void *pvParameters);
+void vCarCtrlTask(void *pvParameters);
 
 #endif /* APP_TASKS_H */

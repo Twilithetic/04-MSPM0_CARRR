@@ -32,6 +32,9 @@ SemaphoreHandle_t g_motorDoneSem = NULL;
 /* ---- Semaphore: motor init done → MotorSync can start periodic sync ---- */
 SemaphoreHandle_t g_motorSyncSem = NULL;
 
+/* ---- Binary semaphore: MotorSync done → CarCtrl runs PID ---- */
+SemaphoreHandle_t g_ctrlSyncSem = NULL;
+
 int main(void)
 {
     /* ---- Hardware init ---- */
@@ -51,6 +54,10 @@ int main(void)
     /* Binary semaphore: motor init done → MotorSync can start periodic sync.
      * Initial 0 — MotorSync blocks until vMotorInitTask gives it. */
     g_motorSyncSem = xSemaphoreCreateBinary();
+
+    /* Binary semaphore: MotorSync → CarCtrl handshake.
+     * Initial 0 — CarCtrl blocks until MotorSync gives it. */
+    g_ctrlSyncSem = xSemaphoreCreateBinary();
 
     /* ---- Create application tasks ---- */
     BaseType_t xReturn;
@@ -76,6 +83,10 @@ int main(void)
     configASSERT(xReturn == pdPASS);
 
     xReturn = xTaskCreate(vMotorSyncTask, "MotorSync", configMINIMAL_STACK_SIZE * 4,
+                          NULL,        3,          NULL);
+    configASSERT(xReturn == pdPASS);
+
+    xReturn = xTaskCreate(vCarCtrlTask, "CarCtrl",   configMINIMAL_STACK_SIZE * 4,
                           NULL,        3,          NULL);
     configASSERT(xReturn == pdPASS);
 

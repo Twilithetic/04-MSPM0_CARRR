@@ -15,6 +15,7 @@
 #include "include/XDS110_cdc.h"
 #include "include/imu_shadow.h"           /* shadow register accessors */
 #include "include/motor_driver_uart.h"    /* motor driver proxy */
+#include "include/car_speed_ctrl.h"    /* shadow register accessors */
 
 /* I2C functions (in src/driver/chip/I2C_test.c) */
 extern void i2c_test_init(void);
@@ -51,6 +52,7 @@ void motor_update_distance(void)
 extern SemaphoreHandle_t g_scanDoneSem;
 extern SemaphoreHandle_t g_motorDoneSem;
 extern SemaphoreHandle_t g_motorSyncSem;
+extern SemaphoreHandle_t g_ctrlSyncSem;
 
 /* ── Blue LED blink ── */
 void vBlueTask(void *pvParameters)
@@ -196,7 +198,7 @@ void vLoggerTask(void *pvParameters)
 void vMotorInitTask(void *pvParameters)
 {
     (void) pvParameters;
-
+    car_ctrl_set_target_speed(500.0f, 500.0f);  /* stop car before motor init */
     /* Init UART1 + send stop commands (motor_driver_init calls motor_uart_init internally) */
     motor_driver_init();
 
@@ -235,6 +237,34 @@ void vMotorSyncTask(void *pvParameters)
         /* convert encoder total → travel distance (mm) */
         motor_update_distance();
 
+        /* release CarCtrl task (same priority → runs next) */
+        xSemaphoreGive(g_ctrlSyncSem);
+
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
+    }
+}
+
+/* ── Car Speed Control Task (prio 3): PID @ 100Hz, triggered by MotorSync ──
+ *
+ *  Runs immediately after vMotorSyncTask each tick — same priority,
+ *  semaphore-gated so encoder_10ms is always fresh.
+ *  encoder_10ms → PID → PWM → flush_pwm_to_device */
+void vCarCtrlTask(void *pvParameters)
+{
+    (void) pvParameters;
+
+    /* Wait for motor init */
+    xSemaphoreTake(g_motorSyncSem, portMAX_DELAY);
+
+    if (!motor_is_initialized()) {
+        vTaskDelete(NULL);
+    }
+
+    for (;;) {
+        /* Block until vMotorSyncTask finishes sync + distance update */
+        xSemaphoreTake(g_ctrlSyncSem, portMAX_DELAY);
+
+        /* PID speed control → PWM → flush to device */
+        car_ctrl_pid_tick();
     }
 }

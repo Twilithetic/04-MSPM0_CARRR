@@ -39,9 +39,10 @@ const C_FILES: &[(&str, &str)] = &[
      "C:/ti/mspm0_sdk_2_10_00_04/source/ti/devices/msp/m0p/startup_system_files/ticlang/startup_mspm0g350x_ticlang.c"),
 
     // ---- Application ----
-    ("main.c",       "src/main.c"),
-    ("task.c",       "src/software/task.c"),
-    ("app_hooks.c",  "src/software/app_hooks.c"),
+    ("main.c",            "src/main.c"),
+    ("task.c",            "src/software/task.c"),
+    ("app_hooks.c",       "src/software/app_hooks.c"),
+    ("car_speed_ctrl.c",  "src/software/car_speed_ctrl.c"),
 
     // ---- Driver (minimal — only LED) ----
     ("build_in_led.c", "src/driver/board/build_in_led.c"),
@@ -87,6 +88,7 @@ const OBJS: &[&str] = &[
     "main",
     "task",
     "app_hooks",
+    "car_speed_ctrl",
     "build_in_led",
     "XDS110_cdc",
     "registers",
