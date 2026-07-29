@@ -228,6 +228,8 @@ void vMotorSyncTask(void *pvParameters)
         vTaskDelete(NULL);
     }
 
+    xSemaphoreGive(g_ctrlSyncSem);
+
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
     for (;;) {
@@ -251,7 +253,7 @@ void vCarCtrlTask(void *pvParameters)
     (void) pvParameters;
 
     /* Wait for motor init */
-    xSemaphoreTake(g_motorSyncSem, portMAX_DELAY);
+    xSemaphoreTake(g_ctrlSyncSem, portMAX_DELAY);
 
     if (!motor_is_initialized()) {
         vTaskDelete(NULL);
@@ -267,7 +269,7 @@ void vCarCtrlTask(void *pvParameters)
     for (;;) {
 
         /* PID speed control → PWM → flush to device */
-        car_ctrl_pid_tick();
+        // car_ctrl_pid_tick();
         
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
