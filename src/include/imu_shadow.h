@@ -56,6 +56,12 @@ uint32_t imu_get_sample_count(void);
 /** Get quaternion rate (samples/second), computed from delta since last call */
 uint16_t imu_get_qps(void);
 
+/** Exponentially-smoothed QPS (updated by vStatsTask @ 1Hz) */
+uint16_t imu_get_smooth_qps(void);
+
+/** Update stats EMA — called by vStatsTask */
+void stats_update(void);
+
 /** Yaw/Pitch/Roll angles from quaternion (*100 to keep 2 decimal places as int) */
 int16_t imu_get_yaw_deg100(void);
 int16_t imu_get_pitch_deg100(void);

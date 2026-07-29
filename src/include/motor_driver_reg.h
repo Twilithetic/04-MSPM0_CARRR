@@ -85,6 +85,7 @@ float    motor_get_wheel_diameter(void);
 uint16_t motor_get_deadzone(void);
 bool     motor_is_initialized(void);
 uint16_t motor_get_sync_rate(void);       /* frames/sec from sync_encoder_from_device */
+uint16_t motor_get_smooth_sync_rate(void); /* EMA-smoothed sync rate (by vStatsTask) */
 float    motor_get_distance_left_mm(void);  /* encoder_total_left → travel distance (mm) */
 float    motor_get_distance_right_mm(void); /* encoder_total_right → travel distance (mm) */
 

@@ -224,8 +224,8 @@ uint16_t imu_get_qps(void)
     g_lsm6dsv16x_reg.last_qps_count = g_lsm6dsv16x_reg.q_count;
 
     if (dt == 0) { return 0; }
-    /* qps = dq * 1000 / dt   (dt in ms) */
-    return (uint16_t)(((uint32_t)dq * 1000U) / dt);
+    /* qps = dq * configTICK_RATE_HZ / dt   (rate = samples / sec) */
+    return (uint16_t)(((uint32_t)dq * configTICK_RATE_HZ) / dt);
 }
 int16_t  imu_get_yaw_deg100(void)        { return g_lsm6dsv16x_reg.yaw_deg100; }
 int16_t  imu_get_pitch_deg100(void)      { return g_lsm6dsv16x_reg.pitch_deg100; }
@@ -405,8 +405,40 @@ uint16_t motor_get_sync_rate(void)
     g_motor_driver_reg.last_sync_count = g_motor_driver_reg.sync_count;
 
     if (dt == 0) return 0;
-    /* rate = ds * 1000 / dt  (dt in ms) */
-    return (uint16_t)(((uint32_t)ds * 1000U) / dt);
+    /* rate = ds * configTICK_RATE_HZ / dt   (rate = syncs / sec) */
+    return (uint16_t)(((uint32_t)ds * configTICK_RATE_HZ) / dt);
+}
+
+/* ──= Stats smoothing (exponential moving average) =── */
+#define STATS_ALPHA  0.75f       /* new-sample weight (0~1, higher = faster response) */
+
+static float   g_smooth_qps   = 0.0f;
+static float   g_smooth_msync = 0.0f;
+static bool    g_stats_inited = false;
+
+void stats_update(void)
+{
+    uint16_t raw_qps   = imu_get_qps();
+    uint16_t raw_msync = motor_get_sync_rate();
+
+    if (!g_stats_inited) {
+        g_smooth_qps   = (float)raw_qps;
+        g_smooth_msync = (float)raw_msync;
+        g_stats_inited = true;
+    } else {
+        g_smooth_qps   = g_smooth_qps   * (1.0f - STATS_ALPHA) + (float)raw_qps   * STATS_ALPHA;
+        g_smooth_msync = g_smooth_msync * (1.0f - STATS_ALPHA) + (float)raw_msync * STATS_ALPHA;
+    }
+}
+
+uint16_t imu_get_smooth_qps(void)
+{
+    return (uint16_t)g_smooth_qps;
+}
+
+uint16_t motor_get_smooth_sync_rate(void)
+{
+    return (uint16_t)g_smooth_msync;
 }
 
 float motor_get_distance_left_mm(void)

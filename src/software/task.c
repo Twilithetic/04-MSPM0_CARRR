@@ -112,7 +112,7 @@ void vImuPollTask(void *pvParameters)
 
     for (;;) {
         lsm6dsv16x_sync_from_device();
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(5));  /* 200 Hz */
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));  /* 200 Hz */
     }
 }
 
@@ -154,10 +154,10 @@ void vLoggerTask(void *pvParameters)
     for (;;) {
         char buf[UART_TX_BUF_SIZE];
         unsigned long ticks = xTaskGetTickCount();
-        unsigned long secs  = ticks / 1000;
-        unsigned long ms    = ticks % 1000;
+        unsigned long secs  = ticks / configTICK_RATE_HZ;
+        unsigned long ms    = (ticks % configTICK_RATE_HZ) * 1000UL / configTICK_RATE_HZ;
 
-        uint16_t qps   = imu_get_qps();
+        uint16_t qps   = imu_get_smooth_qps();
         int16_t  yaw   = imu_get_yaw_deg100();
         (void) imu_get_pitch_deg100();
         (void) imu_get_roll_deg100();
@@ -169,7 +169,7 @@ void vLoggerTask(void *pvParameters)
         int16_t spd_right = motor_get_speed_right();
         int32_t tot_left  = motor_get_encoder_left();
         int32_t tot_right = motor_get_encoder_right();
-        uint16_t msync    = motor_get_sync_rate();
+        uint16_t msync    = motor_get_smooth_sync_rate();
         float dist_left   = motor_get_distance_left_mm();
         float dist_right  = motor_get_distance_right_mm();
 
@@ -237,7 +237,7 @@ void vMotorSyncTask(void *pvParameters)
         /* convert encoder total → travel distance (mm) */
         motor_update_distance();
 
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }
 
@@ -270,5 +270,17 @@ void vCarCtrlTask(void *pvParameters)
         car_ctrl_pid_tick();
         
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
+    }
+}
+
+/* ── Stats Task (prio 1): EMA-smooth QPS & msync @ 1 Hz ── */
+void vStatsTask(void *pvParameters)
+{
+    (void) pvParameters;
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+
+    for (;;) {
+        stats_update();
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000));
     }
 }

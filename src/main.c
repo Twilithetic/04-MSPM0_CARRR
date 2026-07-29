@@ -94,6 +94,10 @@ int main(void)
                           NULL,        1,          NULL);
     configASSERT(xReturn == pdPASS);
 
+    xReturn = xTaskCreate(vStatsTask, "Stats",    configMINIMAL_STACK_SIZE,
+                          NULL,        1,          NULL);
+    configASSERT(xReturn == pdPASS);
+
     /* ---- Start FreeRTOS scheduler (never returns) ---- */
     vTaskStartScheduler();
 
