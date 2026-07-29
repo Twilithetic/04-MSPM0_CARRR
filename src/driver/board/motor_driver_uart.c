@@ -1,30 +1,39 @@
 /*
  *  ======== motor_driver_uart.c ========
- *  4-Way Motor Driver Board Proxy — UART command/response → shadow register.
+ *  4-Way Motor Driver Board Proxy — UART command/response.
+ *
+ *  The driver board has built-in PID.  Application sets PID params + target
+ *  speed; the board controls motors closed-loop.  Direct PWM bypass is also
+ *  available for testing.
  *
  *  Hardware:
  *    UART1: PA8 TX, PA9 RX @ 115200 8N1
  *
  *  Implementation: pure DriverLib + FreeRTOS queue (matching vendor's
  *  reference code in docs/4路电机驱动板/CarMove_USART/BSP/).
- *  TI Drivers is NOT used — BLOCKING mode is unreliable and the
- *  protocol is simple request-response with '#' framing.
  *
  *  Protocol:
  *    Commands:  $cmd:args#         (no CR/LF — '#' is the terminator)
  *    Responses: $KEY:data#         (terminated by '#')
  *
- *    Write-only (no response):
- *      $mtype:N#  $deadzone:N#  $mline:N#  $mphase:N#  $wdiameter:F#
- *      $spd:M1,M2,M3,M4#  $pwm:M1,M2,M3,M4#
+ *    Board PID:
+ *      $mpid:P,I,D#               — set PID parameters on board
+ *      $spd:M1,M2,M3,M4#          — target speed (encoder counts/10ms)
  *
- *    Query (returns response):
+ *    Direct PWM:
+ *      $pwm:M1,M2,M3,M4#          — raw PWM (-7200 ~ +7200)
+ *
+ *    Config:
+ *      $mtype:N#  $deadzone:N#  $mline:N#  $mphase:N#  $wdiameter:F#
+ *
+ *    Upload (periodic responses):
+ *      $upload:1,1,1#  →  $MAll:, $MTEP:, $MSPD: every 10ms
+ *
+ *    Query:
  *      $read_vol#       →  $Battery:X.XXV#
- *      $upload:0,1,0#   →  periodic $MTEP:M1,M2,M3,M4# every 10ms
  *
  *  Motor mapping:
- *    M1=LF  M2=LR  M3=RF  M4=RR
- *    LEFT=M4  RIGHT=M2
+ *    M1=LF  M2=LEFT  M3=RF  M4=RIGHT
  */
 
 #include "include/motor_driver_uart.h"
@@ -238,7 +247,6 @@ bool motor_driver_init(void)
     /* Stop motors */
     motor_send_cmd_nowait("$spd:0,0,0,0#", 50);
     motor_send_cmd_nowait("$pwm:0,0,0,0#", 50);
-    
 
     /* Health check — this one returns a response */
     const char *resp = motor_send_cmd("$read_vol#", 200);
@@ -273,6 +281,78 @@ bool cmd_config_tt_encoder(MotorDriverReg *r)
     return true;
 }
 
+/* ---- Board PID: set PID parameters on the driver board ---- */
+
+void motor_send_pid(float kp, float ki, float kd)
+{
+    char buf[64];
+    int n = snprintf(buf, sizeof(buf), "$mpid:%.3f,%.3f,%.3f#",
+                     (double)kp, (double)ki, (double)kd);
+    if (n > 0 && (size_t)n < sizeof(buf)) motor_send_cmd_nowait(buf, 0);
+}
+
+/* ---- Speed control: target speed in encoder counts/10ms ----
+ *
+ *  Sends $spd:M1,M2,M3,M4#.
+ *  Mapping: M2=LEFT, M4=RIGHT.  M1/M3 unused (set to 0). */
+
+void motor_send_speed(int16_t m1, int16_t m2, int16_t m3, int16_t m4)
+{
+    char buf[64];
+    int n = snprintf(buf, sizeof(buf), "$spd:%d,%d,%d,%d#",
+                     (int)m1, (int)m2, (int)m3, (int)m4);
+    if (n > 0 && (size_t)n < sizeof(buf)) motor_uart_send(buf);
+}
+
+/*
+ *  Speed in mm/s → encoder counts/10ms.
+ *
+ *  Encoder: 13 lines × 4 edges × 45 reduction = 2340 counts/wheel-rev
+ *  Wheel circumference = π × 67.0 ≈ 210.5 mm
+ *  counts_per_mm = 2340 / 210.5 ≈ 11.12
+ *  mm/s → counts/10ms:  counts_10ms = mm_s × counts_per_mm / 100
+ *                                = mm_s × 11.12 / 100
+ *                                ≈ mm_s × 0.1112
+ */
+void motor_send_speed_mm_s(float left_mm_s, float right_mm_s)
+{
+    /* Conversion constant: (13*4*45) / (PI * 67.0) / 100 */
+    #define COUNTS_PER_REV       (13.0f * 4.0f * 45.0f)     /* 2340 */
+    #define WHEEL_CIRC_MM        (3.1415926f * 67.0f)       /* ~210.5 */
+    #define MM_S_TO_COUNTS_10MS  (COUNTS_PER_REV / WHEEL_CIRC_MM / 100.0f)  /* ~0.1112 */
+
+    int16_t l = (int16_t)(left_mm_s  * MM_S_TO_COUNTS_10MS);
+    int16_t r = (int16_t)(right_mm_s * MM_S_TO_COUNTS_10MS);
+
+    motor_send_speed(0, r, 0, l);   /* M2=RIGHT wheel, M4=LEFT wheel */
+
+    #undef MM_S_TO_COUNTS_10MS
+    #undef WHEEL_CIRC_MM
+    #undef COUNTS_PER_REV
+}
+
+/* ---- Direct PWM: raw PWM bypassing board PID ----
+ *
+ *  Sends $pwm:M1,M2,M3,M4#.  Range: -7200 ~ +7200. */
+
+void motor_send_pwm(int16_t m1, int16_t m2, int16_t m3, int16_t m4)
+{
+    char buf[64];
+    int n = snprintf(buf, sizeof(buf), "$pwm:%d,%d,%d,%d#",
+                     (int)m1, (int)m2, (int)m3, (int)m4);
+    if (n > 0 && (size_t)n < sizeof(buf)) motor_send_cmd_nowait(buf, 50);
+}
+
+/* ---- Stop: zero-speed + zero-PWM ---- */
+
+void motor_send_stop(void)
+{
+    motor_send_cmd_nowait("$spd:0,0,0,0#", 0);
+    motor_send_cmd_nowait("$pwm:0,0,0,0#", 50);
+}
+
+/* ---- Battery health check ---- */
+
 uint16_t motor_read_battery_voltage(void)
 {
     const char *resp = motor_send_cmd("$read_vol#", 200);
@@ -282,6 +362,8 @@ uint16_t motor_read_battery_voltage(void)
         return (uint16_t)(volts * 10.0f);
     return 0;
 }
+
+/* ---- SYNC: read UART1 → write shadow register ---- */
 
 void sync_encoder_from_device(MotorDriverReg *r)
 {
@@ -330,31 +412,6 @@ void sync_encoder_from_device(MotorDriverReg *r)
 }
 
 void sync_config_from_device(MotorDriverReg *r) { (void)r; }
-
-void flush_speed_to_device(MotorDriverReg *r)
-{
-    char buf[64];
-    int n = snprintf(buf, sizeof(buf), "$spd:0,%d,0,%d#",
-                     (int)r->target_speed_right, (int)r->target_speed_left);
-    if (n > 0 && (size_t)n < sizeof(buf)) motor_uart_send(buf);
-}
-
-void flush_pwm_to_device(MotorDriverReg *r)
-{
-    // motor_send_cmd_nowait("$pwm:0,2000,0,2000#", 50);
-    char buf[64];
-    int n = snprintf(buf, sizeof(buf), "$pwm:0,%d,0,%d#",
-                     (int)r->target_pwm_right, (int)r->target_pwm_left);
-    if (n > 0 && (size_t)n < sizeof(buf)) motor_send_cmd_nowait(buf, 50);
-}
-
-void flush_stop_to_device(MotorDriverReg *r)
-{
-    r->target_speed_left = r->target_speed_right = 0;
-    r->target_pwm_left   = r->target_pwm_right   = 0;
-    flush_speed_to_device(r);
-    flush_pwm_to_device(r);
-}
 
 void motor_uart_putchar(char c)
 {

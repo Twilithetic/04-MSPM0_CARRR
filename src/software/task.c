@@ -15,7 +15,6 @@
 #include "include/XDS110_cdc.h"
 #include "include/imu_shadow.h"           /* shadow register accessors */
 #include "include/motor_driver_uart.h"    /* motor driver proxy */
-#include "include/car_speed_ctrl.h"    /* shadow register accessors */
 
 /* I2C functions (in src/driver/chip/I2C_test.c) */
 extern void i2c_test_init(void);
@@ -37,7 +36,7 @@ extern void lsm6dsv16x_sync_from_device(void);
  *  Wheel diameter = 68.5mm → circumference = PI × 68.5 ≈ 215.20mm
  *  mm_per_count = (PI × 68.5) / 60000 ≈ 0.00368 */
 #define ENCODER_COUNTS_PER_REV  60000U
-#define WHEEL_DIAMETER_MM       67f
+#define WHEEL_DIAMETER_MM       67.0f
 #define MM_PER_COUNT            (3.1415926f * WHEEL_DIAMETER_MM / (float)ENCODER_COUNTS_PER_REV)
 
 void motor_update_distance(void)
@@ -162,33 +161,30 @@ void vLoggerTask(void *pvParameters)
         (void) imu_get_pitch_deg100();
         (void) imu_get_roll_deg100();
 
-        /* PID control data */
-        float   tgt_left   = car_ctrl_get_target_speed_left();
-        float   tgt_right  = car_ctrl_get_target_speed_right();
-        float   spdL_mm_s  = car_ctrl_get_speed_left_mm_s();
-        float   spdR_mm_s  = car_ctrl_get_speed_right_mm_s();
-        int16_t pwm_left   = car_ctrl_get_pwm_left();
-        int16_t pwm_right  = car_ctrl_get_pwm_right();
+        /* Motor speed + encoder data */
+        float   spdL_mm_s  = 0.0f;   /* TODO: convert speed_left to mm/s */
+        float   spdR_mm_s  = 0.0f;   /* TODO: convert speed_right to mm/s */
 
         float dist_left   = motor_get_distance_left_mm();
         float dist_right  = motor_get_distance_right_mm();
         uint16_t msync    = motor_get_smooth_sync_rate();
         int32_t enc_total_left  = motor_get_encoder_left();
         int32_t enc_total_right = motor_get_encoder_right();
+        int16_t enc10ms_left  = motor_get_encoder_10ms_left();
+        int16_t enc10ms_right = motor_get_encoder_10ms_right();
 
         int n = snprintf(buf, sizeof(buf),
                          "[%lu.%03lus] B:%lu G:%lu | qps:%-3u msync:%-3u yaw:%7.2f° | "
-                         "tgt L:%5.0f R:%5.0f mm/s | spd L:%5.0f R:%5.0f mm/s | "
-                         "pwm L:%+5d R:%+5d | dist L:%.1f R:%.1f mm | enc L:%ld R:%ld\r\n",
+                         "spd L:%5.0f R:%5.0f mm/s | "
+                         "10ms L:%+5d R:%+5d | dist L:%.1f R:%.1f mm | enc L:%ld R:%ld\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
                          (unsigned int) qps,
                          (unsigned int) msync,
                          (double) yaw   / 100.0,
-                         (double) tgt_left,  (double) tgt_right,
                          (double) spdL_mm_s, (double) spdR_mm_s,
-                         (int) pwm_left, (int) pwm_right,
+                         (int) enc10ms_left, (int) enc10ms_right,
                          (double) dist_left, (double) dist_right,
                          (long) enc_total_left, (long) enc_total_right);
 
@@ -248,11 +244,11 @@ void vMotorSyncTask(void *pvParameters)
     }
 }
 
-/* ── Car Speed Control Task (prio 3): PID @ 100Hz, triggered by MotorSync ──
+/* ── Car Speed Control Task (prio 3): sets board PID + target speed @ 100Hz ──
  *
- *  Runs immediately after vMotorSyncTask each tick — same priority,
- *  semaphore-gated so encoder_10ms is always fresh.
- *  encoder_10ms → PID → PWM → flush_pwm_to_device */
+ *  The driver board runs its own PID internally.  This task only needs to
+ *  set PID parameters and target speed once, then the board maintains it.
+ *  At 100Hz we can update target speed for acceleration / line-following. */
 void vCarCtrlTask(void *pvParameters)
 {
     (void) pvParameters;
@@ -264,15 +260,19 @@ void vCarCtrlTask(void *pvParameters)
         vTaskDelete(NULL);
     }
 
-    // car_ctrl_set_target_speed(500.0f, 500.0f);  /* stop car before motor init */
-    
+    /* Set board PID parameters (tune these for your car) */
+    motor_send_pid(0.5f, 0.02f, 0.0f);
+
+    /* Set target speed: 500 mm/s for both wheels (~ moderate speed) */
+    motor_send_speed_mm_s(500.0f, 500.0f);
+
     TickType_t xLastWakeTime = xTaskGetTickCount();
     for (;;) {
-        g_motor_driver_reg.target_pwm_left = 2000;
-        g_motor_driver_reg.target_pwm_right = 2000;
-        flush_pwm_to_device(&g_motor_driver_reg);
-        /* PID speed control → PWM → flush to device */
-        // car_ctrl_pid_tick();
+        /* Update target speed each tick.  As the line-following controller
+         * (or other planner) sets new speed commands, this loop sends them
+         * to the board to keep its PID target current. */
+        // TODO: replace hardcoded speed with line-following controller output
+        // motor_send_speed_mm_s(target_left, target_right);
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }

@@ -42,7 +42,6 @@ const C_FILES: &[(&str, &str)] = &[
     ("main.c",            "src/main.c"),
     ("task.c",            "src/software/task.c"),
     ("app_hooks.c",       "src/software/app_hooks.c"),
-    ("car_speed_ctrl.c",  "src/software/car_speed_ctrl.c"),
 
     // ---- Driver (minimal — only LED) ----
     ("build_in_led.c", "src/driver/board/build_in_led.c"),
@@ -88,7 +87,6 @@ const OBJS: &[&str] = &[
     "main",
     "task",
     "app_hooks",
-    "car_speed_ctrl",
     "build_in_led",
     "XDS110_cdc",
     "registers",
