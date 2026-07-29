@@ -198,7 +198,8 @@ void vLoggerTask(void *pvParameters)
 void vMotorInitTask(void *pvParameters)
 {
     (void) pvParameters;
-    car_ctrl_set_target_speed(500.0f, 500.0f);  /* stop car before motor init */
+    
+    // car_ctrl_set_target_speed(500.0f, 500.0f);  /* stop car before motor init */
     /* Init UART1 + send stop commands (motor_driver_init calls motor_uart_init internally) */
     motor_driver_init();
 
