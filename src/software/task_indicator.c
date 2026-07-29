@@ -106,7 +106,7 @@ void vLoggerTask(void *pvParameters)
         int16_t enc10ms_right = motor_get_encoder_10ms_right();
 
         int n = snprintf(buf, sizeof(buf),
-                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u msync:%-3u yaw:%7.2f° | "
+                         "[%lu.%03lus] B:%lu G:%lu | qps:%-3u msync:%-3u | yaw:%7.2f° | "
                          "spd L:%5.0f R:%5.0f mm/s | "
                          "10ms L:%+5d R:%+5d | dist L:%.1f R:%.1f mm | enc L:%ld R:%ld\r\n",
                          secs, ms,

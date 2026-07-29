@@ -373,6 +373,12 @@ void sync_encoder_from_device(MotorDriverReg *r)
      * Drain ALL pending frames.  $upload:1,1,1# (sent in cmd_config_tt_encoder)
      * causes the driver board to send three frames every 10 ms automatically:
      *   $MAll:...  $MTEP:...  $MSPD:...
+     *
+     * IMPORTANT: MAll is int16 (-32768..32767) and wraps around in <1 sec
+     * at 60000 counts/rev.  We IGNORE it and instead ACCUMULATE MTEP (10ms
+     * delta, also int16 but small per tick) into encoder_total_left/right
+     * which are int32 — won't overflow for ~16 hours at 100 Hz.
+     *
      * Each call reads up to 5 frames (safety cap), stopping when no more '$'
      * is immediately available.
      */
@@ -387,17 +393,21 @@ void sync_encoder_from_device(MotorDriverReg *r)
         int16_t m[4] = {0};
 
         if (strncmp(resp, "MAll:", 5) == 0) {
+            /* int16 — wraps fast, ignore; use MTEP accumulation instead */
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
-                motor_set_encoder_left((int32_t)m[3]);   /* M4=LEFT */
-                motor_set_encoder_right((int32_t)m[1]);  /* M2=RIGHT */
                 got_data = true; n_frames++;
             }
         } else if (strncmp(resp, "MTEP:", 5) == 0) {
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
-                motor_set_encoder_10ms_left(m[3]);  /* M4=LEFT */
-                motor_set_encoder_10ms_right(m[1]); /* M2=RIGHT */
+                /* Accumulate 10ms delta into int32 total */
+                int32_t prev_l = motor_get_encoder_left();
+                int32_t prev_r = motor_get_encoder_right();
+                motor_set_encoder_left(prev_l + (int32_t)m[3]);   /* M4=LEFT */
+                motor_set_encoder_right(prev_r + (int32_t)m[1]);  /* M2=RIGHT */
+                motor_set_encoder_10ms_left(m[3]);
+                motor_set_encoder_10ms_right(m[1]);
                 got_data = true; n_frames++;
             }
         } else if (strncmp(resp, "MSPD:", 5) == 0) {
