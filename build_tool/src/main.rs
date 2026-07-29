@@ -40,7 +40,10 @@ const C_FILES: &[(&str, &str)] = &[
 
     // ---- Application ----
     ("main.c",            "src/main.c"),
-    ("task.c",            "src/software/task.c"),
+    ("task_indicator.c",  "src/software/task_indicator.c"),
+    ("task_init.c",       "src/software/task_init.c"),
+    ("task_telemetry.c",  "src/software/task_telemetry.c"),
+    ("task_control.c",    "src/software/task_control.c"),
     ("app_hooks.c",       "src/software/app_hooks.c"),
 
     // ---- Driver (minimal — only LED) ----
@@ -85,7 +88,10 @@ const OBJS: &[&str] = &[
     "ti_msp_dl_config",
     "startup_mspm0g350x_ticlang",
     "main",
-    "task",
+    "task_indicator",
+    "task_init",
+    "task_telemetry",
+    "task_control",
     "app_hooks",
     "build_in_led",
     "XDS110_cdc",

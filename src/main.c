@@ -44,7 +44,7 @@ int main(void)
 
     /* Create semaphore BEFORE scheduler starts.
      * Counting semaphore: max 2, initial 0.  vI2CScanTask gives it once
-     * after scan+init; both vImuPollTask and vLoggerTask can take. */
+     * after scan+init; both vLSM6DSV16XSyncTask and vLoggerTask can take. */
     g_scanDoneSem = xSemaphoreCreateCounting(2, 0);
 
     /* Binary semaphore: motor init done → Logger can safely print encoder data.
@@ -74,7 +74,7 @@ int main(void)
                           NULL,        2,          NULL);
     configASSERT(xReturn == pdPASS);
 
-    xReturn = xTaskCreate(vImuPollTask, "ImuPoll",  configMINIMAL_STACK_SIZE * 4,
+    xReturn = xTaskCreate(vLSM6DSV16XSyncTask, "L6Sync",  configMINIMAL_STACK_SIZE * 4,
                           NULL,        3,          NULL);
     configASSERT(xReturn == pdPASS);
 

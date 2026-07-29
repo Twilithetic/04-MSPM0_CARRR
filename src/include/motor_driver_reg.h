@@ -115,7 +115,7 @@ void motor_set_initialized(bool val);
 void motor_set_distance_left_mm(float val);
 void motor_set_distance_right_mm(float val);
 
-/* encoder → travel distance (defined in src/software/task.c) */
+/* encoder → travel distance (defined in src/driver/board/motor_driver_uart.c) */
 void motor_update_distance(void);
 
 #ifdef __cplusplus

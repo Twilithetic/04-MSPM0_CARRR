@@ -449,3 +449,25 @@ void motor_print_config(bool ok)
         }
     }
 }
+
+/* ====================================================================
+ *  Encoder → travel distance conversion
+ *
+ *  2340 counts per wheel-rev (13 lines × 4 edges × 45 reduction ratio)
+ *  Wheel diameter = 67.0mm → circumference = π × 67.0 ≈ 210.5mm
+ *  mm_per_count = (π × 67.0) / 60000 ≈ 0.00351
+ *
+ *  Called by vMotorSyncTask every 10ms after sync_encoder_from_device.
+ * ==================================================================== */
+
+#define ENCODER_COUNTS_PER_REV  60000U
+#define MOTOR_WHEEL_DIAMETER_MM 67.0f
+#define MOTOR_MM_PER_COUNT      (3.1415926f * MOTOR_WHEEL_DIAMETER_MM / (float)ENCODER_COUNTS_PER_REV)
+
+void motor_update_distance(void)
+{
+    float dist_left  = (float)g_motor_driver_reg.encoder_total_left  * MOTOR_MM_PER_COUNT;
+    float dist_right = (float)g_motor_driver_reg.encoder_total_right * MOTOR_MM_PER_COUNT;
+    motor_set_distance_left_mm(dist_left);
+    motor_set_distance_right_mm(dist_right);
+}
