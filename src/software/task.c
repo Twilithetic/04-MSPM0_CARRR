@@ -162,29 +162,31 @@ void vLoggerTask(void *pvParameters)
         (void) imu_get_pitch_deg100();
         (void) imu_get_roll_deg100();
 
-        /* Motor encoder data (from motor sync task @ 10ms) */
-        int16_t enc_left  = motor_get_encoder_10ms_left();
-        int16_t enc_right = motor_get_encoder_10ms_right();
-        int16_t spd_left  = motor_get_speed_left();
-        int16_t spd_right = motor_get_speed_right();
-        int32_t tot_left  = motor_get_encoder_left();
-        int32_t tot_right = motor_get_encoder_right();
-        uint16_t msync    = motor_get_smooth_sync_rate();
+        /* PID control data */
+        float   tgt_left   = car_ctrl_get_target_speed_left();
+        float   tgt_right  = car_ctrl_get_target_speed_right();
+        float   spdL_mm_s  = car_ctrl_get_speed_left_mm_s();
+        float   spdR_mm_s  = car_ctrl_get_speed_right_mm_s();
+        int16_t pwm_left   = car_ctrl_get_pwm_left();
+        int16_t pwm_right  = car_ctrl_get_pwm_right();
+
         float dist_left   = motor_get_distance_left_mm();
         float dist_right  = motor_get_distance_right_mm();
+        uint16_t msync    = motor_get_smooth_sync_rate();
 
         int n = snprintf(buf, sizeof(buf),
                          "[%lu.%03lus] B:%lu G:%lu | qps:%-3u msync:%-3u yaw:%7.2f° | "
-                         "enc L:%d R:%d | spd L:%d R:%d | total L:%ld R:%ld | dist L:%.1f R:%.1f mm\r\n",
+                         "tgt L:%5.0f R:%5.0f mm/s | spd L:%5.0f R:%5.0f mm/s | "
+                         "pwm L:%+5d R:%+5d | dist L:%.1f R:%.1f mm\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
                          (unsigned int) qps,
                          (unsigned int) msync,
                          (double) yaw   / 100.0,
-                         (int) enc_left, (int) enc_right,
-                         (int) spd_left, (int) spd_right,
-                         (long) tot_left, (long) tot_right,
+                         (double) tgt_left,  (double) tgt_right,
+                         (double) spdL_mm_s, (double) spdR_mm_s,
+                         (int) pwm_left, (int) pwm_right,
                          (double) dist_left, (double) dist_right);
 
         if (n > 0 && (size_t) n < sizeof(buf)) {
@@ -263,11 +265,11 @@ void vCarCtrlTask(void *pvParameters)
     
     TickType_t xLastWakeTime = xTaskGetTickCount();
     for (;;) {
-        // g_motor_driver_reg.target_pwm_left = 1000;
-        // g_motor_driver_reg.target_pwm_right = 1000;
-        // flush_pwm_to_device(&g_motor_driver_reg);
+        g_motor_driver_reg.target_pwm_left = 2000;
+        g_motor_driver_reg.target_pwm_right = 2000;
+        flush_pwm_to_device(&g_motor_driver_reg);
         /* PID speed control → PWM → flush to device */
-        car_ctrl_pid_tick();
+        // car_ctrl_pid_tick();
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }

@@ -21,16 +21,6 @@
 #include <stdbool.h>
 
 /* ================================================================
- *  Hardware constants
- * ================================================================ */
-
-#define ENCODER_CPR           2340U
-#define WHEEL_DIAMETER_MM     68.5f
-#define MM_PER_COUNT          0.09198f                       /* PI * 68.5 / 2340          */
-#define COUNT10MS_TO_MM_S(c)  ((float)(c) * 9.198f)         /* cts/10ms → mm/s          */
-#define MM_S_TO_COUNT10MS(v)  ((float)(v) / 9.198f)         /* mm/s → cts/10ms          */
-
-/* ================================================================
  *  PWM limits — driver board accepts int16 [-7200, +7200]
  *  We clamp to ±5000 for safety; deadzone is 1250.
  * ================================================================ */
@@ -42,9 +32,9 @@
  *  PID parameters (runtime-tunable)
  * ================================================================ */
 
-static float g_kp = 60.0f;    /* proportional: PWM / (cts/10ms error) */
-static float g_ki = 8.0f;     /* integral */
-static float g_kd = 2.0f;     /* derivative */
+static float g_kp = 0.0f;    /* proportional: PWM / (cts/10ms error) */
+static float g_ki = 0.0000f;     /* integral */
+static float g_kd = 0.001f;     /* derivative */
 static int16_t g_pwm_limit = PWM_LIMIT;
 
 /* ================================================================
@@ -61,6 +51,11 @@ typedef struct {
 
 static WheelPID g_pid_left  = {0};
 static WheelPID g_pid_right = {0};
+
+/* Previous distance for computing per-tick speed */
+static float g_last_dist_left  = 0.0f;
+static float g_last_dist_right = 0.0f;
+static bool  g_first_tick = true;   /* skip first tick (no previous value) */
 
 /* ================================================================
  *  Target speed setter (called by planner / controller)
@@ -185,18 +180,33 @@ static int16_t pid_step(WheelPID *w, float measured_mm_s)
 
 /* ================================================================
  *  PID tick — called every 10ms by vCarCtrlTask
+ *
+ *  Speed feedback from distance delta (vMotorSyncTask already
+ *  updated distance_left_mm / distance_right_mm before us).
+ *  speed (mm/s) = Δdistance_mm / 0.01s = Δdistance_mm * 100
  * ================================================================ */
 
 void car_ctrl_pid_tick(void)
 {
-    /* Read fresh encoder data (updated by vMotorSyncTask, same 10ms tick) */
-    float speed_left  = COUNT10MS_TO_MM_S(motor_get_encoder_10ms_left());
-    float speed_right = COUNT10MS_TO_MM_S(motor_get_encoder_10ms_right());
+    float dist_left  = motor_get_distance_left_mm();
+    float dist_right = motor_get_distance_right_mm();
+
+    if (g_first_tick) {
+        g_last_dist_left  = dist_left;
+        g_last_dist_right = dist_right;
+        g_first_tick = false;
+        return;
+    }
+
+    float speed_left  = (dist_left  - g_last_dist_left)  * 100.0f;
+    float speed_right = (dist_right - g_last_dist_right) * 100.0f;
+
+    g_last_dist_left  = dist_left;
+    g_last_dist_right = dist_right;
 
     int16_t pwm_left  = pid_step(&g_pid_left,  speed_left);
     int16_t pwm_right = pid_step(&g_pid_right, speed_right);
 
-    /* Write + flush */
     g_motor_driver_reg.target_pwm_left  = pwm_left;
     g_motor_driver_reg.target_pwm_right = pwm_right;
     flush_pwm_to_device(&g_motor_driver_reg);
@@ -244,4 +254,14 @@ int16_t car_ctrl_get_encoder_10ms_left(void)
 int16_t car_ctrl_get_encoder_10ms_right(void)
 {
     return motor_get_encoder_10ms_right();
+}
+
+int16_t car_ctrl_get_pwm_left(void)
+{
+    return g_pid_left.output;
+}
+
+int16_t car_ctrl_get_pwm_right(void)
+{
+    return g_pid_right.output;
 }

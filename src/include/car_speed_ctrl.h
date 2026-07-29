@@ -45,6 +45,8 @@ float    car_ctrl_get_distance_left_mm(void);
 float    car_ctrl_get_distance_right_mm(void);
 float    car_ctrl_get_speed_left_mm_s(void);
 float    car_ctrl_get_speed_right_mm_s(void);
+int16_t  car_ctrl_get_pwm_left(void);
+int16_t  car_ctrl_get_pwm_right(void);
 int32_t  car_ctrl_get_encoder_total_left(void);
 int32_t  car_ctrl_get_encoder_total_right(void);
 int16_t  car_ctrl_get_encoder_10ms_left(void);

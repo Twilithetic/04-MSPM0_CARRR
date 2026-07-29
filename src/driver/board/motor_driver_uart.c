@@ -256,7 +256,7 @@ bool cmd_config_tt_encoder(MotorDriverReg *r)
     motor_send_cmd_nowait("$mtype:3#", 100);
     motor_send_cmd_nowait("$deadzone:1250#", 100);
     motor_send_cmd_nowait("$mline:13#", 100);
-    motor_send_cmd_nowait("$mphase:45#", 100);
+    motor_send_cmd_nowait("$mphase:30#", 100);
     motor_send_cmd_nowait("$wdiameter:67#", 100);
 
     /* Enable all three upload streams at once:
