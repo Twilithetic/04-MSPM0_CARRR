@@ -253,7 +253,7 @@ bool motor_driver_init(void)
     if (resp && strstr(resp, "Battery")) {
         float volts = 0.0f;
         sscanf(resp, "Battery:%fV", &volts);
-        g_motor_driver_reg.comm_status = (uint8_t)(volts * 10.0f);
+        motor_set_comm_status((uint8_t)(volts * 10.0f));
         return true;
     }
     return false;
@@ -261,6 +261,7 @@ bool motor_driver_init(void)
 
 bool cmd_config_tt_encoder(MotorDriverReg *r)
 {
+    (void)r;
     motor_send_cmd_nowait("$mtype:3#", 100);
     motor_send_cmd_nowait("$deadzone:1250#", 100);
     motor_send_cmd_nowait("$mline:500#", 100);
@@ -275,9 +276,10 @@ bool cmd_config_tt_encoder(MotorDriverReg *r)
     const char *resp = motor_send_cmd("$read_vol#", 200);
     if (!resp || !*resp) return false;
 
-    r->motor_type = 3;  r->pulse_line = 13;  r->reduction_ratio = 45;
-    r->wheel_diameter = 67.0f;  r->deadzone = 1250;
-    r->comm_status = 0;  r->initialized = true;
+    motor_set_motor_type(3);     motor_set_pulse_line(13);
+    motor_set_reduction_ratio(45); motor_set_wheel_diameter(67.0f);
+    motor_set_deadzone(1250);    motor_set_comm_status(0);
+    motor_set_initialized(true);
     return true;
 }
 
@@ -374,6 +376,7 @@ void sync_encoder_from_device(MotorDriverReg *r)
      * Each call reads up to 5 frames (safety cap), stopping when no more '$'
      * is immediately available.
      */
+    (void)r;
     bool got_data = false;
     uint16_t n_frames = 0;
 
@@ -386,29 +389,29 @@ void sync_encoder_from_device(MotorDriverReg *r)
         if (strncmp(resp, "MAll:", 5) == 0) {
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
-                r->encoder_total_left  = (int32_t)m[3]; /* M4=LEFT */
-                r->encoder_total_right = (int32_t)m[1]; /* M2=RIGHT */
+                motor_set_encoder_left((int32_t)m[3]);   /* M4=LEFT */
+                motor_set_encoder_right((int32_t)m[1]);  /* M2=RIGHT */
                 got_data = true; n_frames++;
             }
         } else if (strncmp(resp, "MTEP:", 5) == 0) {
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
-                r->encoder_10ms_left  = m[3]; /* M4=LEFT */
-                r->encoder_10ms_right = m[1]; /* M2=RIGHT */
+                motor_set_encoder_10ms_left(m[3]);  /* M4=LEFT */
+                motor_set_encoder_10ms_right(m[1]); /* M2=RIGHT */
                 got_data = true; n_frames++;
             }
         } else if (strncmp(resp, "MSPD:", 5) == 0) {
             if (sscanf(resp + 5, "%hd,%hd,%hd,%hd",
                        &m[0], &m[1], &m[2], &m[3]) >= 4) {
-                r->speed_left  = m[3]; /* M4=LEFT */
-                r->speed_right = m[1]; /* M2=RIGHT */
+                motor_set_speed_left(m[3]);  /* M4=LEFT */
+                motor_set_speed_right(m[1]); /* M2=RIGHT */
                 got_data = true; n_frames++;
             }
         }
     }
 
-    r->sync_count += n_frames;
-    r->comm_status = got_data ? 0 : 0xFE;
+    motor_add_sync_count(n_frames);
+    motor_set_comm_status(got_data ? 0 : 0xFE);
 }
 
 void sync_config_from_device(MotorDriverReg *r) { (void)r; }
@@ -466,8 +469,8 @@ void motor_print_config(bool ok)
 
 void motor_update_distance(void)
 {
-    float dist_left  = (float)g_motor_driver_reg.encoder_total_left  * MOTOR_MM_PER_COUNT;
-    float dist_right = (float)g_motor_driver_reg.encoder_total_right * MOTOR_MM_PER_COUNT;
+    float dist_left  = (float)motor_get_encoder_left()   * MOTOR_MM_PER_COUNT;
+    float dist_right = (float)motor_get_encoder_right() * MOTOR_MM_PER_COUNT;
     motor_set_distance_left_mm(dist_left);
     motor_set_distance_right_mm(dist_right);
 }

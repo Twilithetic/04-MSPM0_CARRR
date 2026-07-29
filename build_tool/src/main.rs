@@ -49,7 +49,10 @@ const C_FILES: &[(&str, &str)] = &[
     // ---- Driver (minimal — only LED) ----
     ("build_in_led.c", "src/driver/board/build_in_led.c"),
     ("XDS110_cdc.c",   "src/driver/board/XDS110_cdc.c"),
-    ("registers.c",    "src/proxy/registers.c"),
+    ("led_reg.c",     "src/proxy/led_reg.c"),
+    ("motor_reg.c",   "src/proxy/motor_reg.c"),
+    ("lsm6_reg.c",    "src/proxy/lsm6_reg.c"),
+    ("misc_reg.c",    "src/proxy/misc_reg.c"),
     ("I2C_test.c",     "src/driver/chip/I2C_test.c"),
     ("ti_drivers_i2c_config.c", "src/driver/chip/ti_drivers_i2c_config.c"),
     // ("ti_drivers_i2c1_config.c", "src/driver/chip/ti_drivers_i2c1_config.c"),  // not needed for GPIO bit-bang I2C
@@ -95,7 +98,10 @@ const OBJS: &[&str] = &[
     "app_hooks",
     "build_in_led",
     "XDS110_cdc",
-    "registers",
+    "led_reg",
+    "motor_reg",
+    "lsm6_reg",
+    "misc_reg",
     "I2C_test",
     "ti_drivers_i2c_config",
     "ti_drivers_i2c_config",

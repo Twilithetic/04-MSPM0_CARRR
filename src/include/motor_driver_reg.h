@@ -1,12 +1,15 @@
 /*
  *  ======== motor_driver_reg.h ========
- *  4-Way Motor Driver Board — shadow register types.
+ *  4-Way Motor Driver Board — shadow register (opaque type).
+ *
+ *  The full struct definition is in src/proxy/motor_reg.c.
+ *  Client code uses only the accessor functions declared below.
  *
  *  Data flow:
  *    sync_encoder_from_device → UART read  → shadow register fields
  *    motor_send_speed / motor_send_pwm → UART write (direct, no shadow flush)
  *
- *  One global instance: g_motor_driver_reg (defined in src/proxy/registers.c)
+ *  One global instance: g_motor_driver_reg (defined in src/proxy/motor_reg.c)
  */
 
 #ifndef MOTOR_DRIVER_REG_H
@@ -19,8 +22,12 @@
 extern "C" {
 #endif
 
-/* ---- Motor Driver Shadow Register ----
- *
+/* ---- Opaque type (full struct in motor_reg.c) ---- */
+typedef struct MotorDriverReg MotorDriverReg;
+
+extern MotorDriverReg g_motor_driver_reg;
+
+/*
  *  Physical motors: M2 (right wheel) and M4 (left wheel) only.
  *  The UART protocol always sends/receives 4 motor slots —
  *  M1/M3 are filled with 0 on write and their encoder reads are ignored.
@@ -28,38 +35,6 @@ extern "C" {
  *  M2  = RIGHT wheel on the 4-way board
  *  M4  = LEFT wheel on the 4-way board
  */
-typedef struct {
-    /* sync_encoder_from_device: updated by UART read ---- */
-    volatile int32_t encoder_total_left;   // ticks, accumulated (M4)
-    volatile int32_t encoder_total_right;  // ticks, accumulated (M2)
-    volatile int16_t encoder_10ms_left;    // ticks/10ms, delta (M4)
-    volatile int16_t encoder_10ms_right;   // ticks/10ms, delta (M2)
-    volatile int16_t speed_left;           // actual speed (M4), from $MSPD
-    volatile int16_t speed_right;          // actual speed (M2), from $MSPD
-    volatile uint8_t  comm_status;         // 0 = OK, >0 = error step
-
-    /* ---- Config readback ---- */
-    volatile uint8_t  motor_type;          // 3 = TT encoder
-    volatile uint16_t pulse_line;          // encoder lines per revolution (13)
-    volatile uint16_t reduction_ratio;     // gear reduction ratio * 1 (45)
-    volatile float    wheel_diameter;      // mm (67.0)
-    volatile uint16_t deadzone;            // PWM deadzone threshold (1250)
-
-    /* flags */
-    volatile bool    initialized;          // true after init succeeds
-
-    /* derived: encoder → travel distance (computed in vMotorSyncTask) */
-    volatile float    distance_left_mm;     // travel distance (mm), left wheel
-    volatile float    distance_right_mm;    // travel distance (mm), right wheel
-
-    /* sync statistics (qps-style) */
-    volatile uint16_t sync_count;         // total frame count since init
-    volatile uint32_t last_sync_tick;     // FreeRTOS tick of last rate snap
-    volatile uint16_t last_sync_count;    // sync_count at last snap
-    volatile uint16_t sync_rate;          // frames/second, computed
-} MotorDriverReg;
-
-extern MotorDriverReg g_motor_driver_reg;
 
 /* ================================================================
  *  Read access (Client / Logger)
@@ -67,7 +42,7 @@ extern MotorDriverReg g_motor_driver_reg;
 
 int32_t motor_get_encoder_left(void);
 int32_t motor_get_encoder_right(void);
-    int16_t motor_get_encoder_10ms_left(void);
+int16_t motor_get_encoder_10ms_left(void);
 int16_t motor_get_encoder_10ms_right(void);
 int16_t motor_get_speed_left(void);
 int16_t motor_get_speed_right(void);
@@ -96,7 +71,7 @@ uint16_t motor_read_battery_voltage(void);
 void motor_uart_putchar(char c);
 
 /* ================================================================
- *  Write access (Proxy only — declared for registers.c linkage)
+ *  Write access (Proxy only — declared for motor_reg.c linkage)
  * ================================================================ */
 
 void motor_set_encoder_left(int32_t val);
@@ -114,6 +89,8 @@ void motor_set_deadzone(uint16_t val);
 void motor_set_initialized(bool val);
 void motor_set_distance_left_mm(float val);
 void motor_set_distance_right_mm(float val);
+void motor_set_sync_count(uint16_t val);
+void motor_add_sync_count(uint16_t n);
 
 /* encoder → travel distance (defined in src/driver/board/motor_driver_uart.c) */
 void motor_update_distance(void);
