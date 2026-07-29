@@ -138,7 +138,7 @@ static void motor_uart_send(const char *s)
     if (!s || !*s) return;
     while (*s) {
         while (DL_UART_Main_isBusy(UART_1_INST)) {
-            vTaskDelay(1);
+            vTaskDelay(pdMS_TO_TICKS(1));
         }
         DL_UART_Main_transmitData(UART_1_INST, (uint8_t)*s++);
     }
@@ -357,7 +357,7 @@ void flush_stop_to_device(MotorDriverReg *r)
 
 void motor_uart_putchar(char c)
 {
-    while (DL_UART_Main_isBusy(UART_1_INST)) { vTaskDelay(1); }
+    while (DL_UART_Main_isBusy(UART_1_INST)) { vTaskDelay(pdMS_TO_TICKS(1)); }
     DL_UART_Main_transmitData(UART_1_INST, (uint8_t)c);
 }
 

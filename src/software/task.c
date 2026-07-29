@@ -198,8 +198,7 @@ void vLoggerTask(void *pvParameters)
 void vMotorInitTask(void *pvParameters)
 {
     (void) pvParameters;
-    
-    // car_ctrl_set_target_speed(500.0f, 500.0f);  /* stop car before motor init */
+
     /* Init UART1 + send stop commands (motor_driver_init calls motor_uart_init internally) */
     motor_driver_init();
 
@@ -238,10 +237,7 @@ void vMotorSyncTask(void *pvParameters)
         /* convert encoder total → travel distance (mm) */
         motor_update_distance();
 
-        /* release CarCtrl task (same priority → runs next) */
-        xSemaphoreGive(g_ctrlSyncSem);
-
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1));
     }
 }
 
@@ -260,12 +256,19 @@ void vCarCtrlTask(void *pvParameters)
     if (!motor_is_initialized()) {
         vTaskDelete(NULL);
     }
+        g_motor_driver_reg.target_pwm_left = 2000;
 
+    g_motor_driver_reg.target_pwm_right = 2000;
+
+        flush_pwm_to_device(&g_motor_driver_reg);  /* stop motors before init */
+    // car_ctrl_set_target_speed(500.0f, 500.0f);  /* stop car before motor init */
+    
+    TickType_t xLastWakeTime = xTaskGetTickCount();
     for (;;) {
-        /* Block until vMotorSyncTask finishes sync + distance update */
-        xSemaphoreTake(g_ctrlSyncSem, portMAX_DELAY);
 
         /* PID speed control → PWM → flush to device */
         car_ctrl_pid_tick();
+        
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }
