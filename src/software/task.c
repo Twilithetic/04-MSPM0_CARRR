@@ -263,13 +263,11 @@ void vCarCtrlTask(void *pvParameters)
     
     TickType_t xLastWakeTime = xTaskGetTickCount();
     for (;;) {
-
-                g_motor_driver_reg.target_pwm_left = 1000;
-
-    g_motor_driver_reg.target_pwm_right = 1000;
+        // g_motor_driver_reg.target_pwm_left = 1000;
+        // g_motor_driver_reg.target_pwm_right = 1000;
+        // flush_pwm_to_device(&g_motor_driver_reg);
         /* PID speed control → PWM → flush to device */
-        // car_ctrl_pid_tick();
-        flush_pwm_to_device(&g_motor_driver_reg);
+        car_ctrl_pid_tick();
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }
