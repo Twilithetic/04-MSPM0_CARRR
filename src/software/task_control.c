@@ -34,7 +34,8 @@ void vCarCtrlTask(void *pvParameters)
     motor_send_pid(0.5f, 0.02f, 0.0f);
 
     /* Set target speed: 500 mm/s for both wheels (~ moderate speed) */
-    motor_send_speed_mm_s(500.0f, 500.0f);
+    // motor_send_speed_mm_s(300.0f, 300.0f);
+    motor_send_speed(0, 300, 0, 300);
 
     TickType_t xLastWakeTime = xTaskGetTickCount();
     for (;;) {

@@ -319,7 +319,7 @@ void motor_send_speed(int16_t m1, int16_t m2, int16_t m3, int16_t m4)
 void motor_send_speed_mm_s(float left_mm_s, float right_mm_s)
 {
     /* Conversion constant: (13*4*45) / (PI * 67.0) / 100 */
-    #define COUNTS_PER_REV       (13.0f * 4.0f * 45.0f)     /* 2340 */
+    #define COUNTS_PER_REV       (500.0f * 4.0f * 30.0f)     /* 60000 */
     #define WHEEL_CIRC_MM        (3.1415926f * 67.0f)       /* ~210.5 */
     #define MM_S_TO_COUNTS_10MS  (COUNTS_PER_REV / WHEEL_CIRC_MM / 100.0f)  /* ~0.1112 */
 
@@ -328,8 +328,8 @@ void motor_send_speed_mm_s(float left_mm_s, float right_mm_s)
 
     motor_send_speed(0, r, 0, l);   /* M2=RIGHT wheel, M4=LEFT wheel */
 
-    #undef MM_S_TO_COUNTS_10MS
     #undef WHEEL_CIRC_MM
+    #undef MM_S_TO_COUNTS_10MS
     #undef COUNTS_PER_REV
 }
 
