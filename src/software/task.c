@@ -35,9 +35,9 @@ extern void lsm6dsv16x_sync_from_device(void);
 /* ── Encoder → travel distance conversion ──
  *  2340 counts per wheel-rev (13 lines × 4 edges × 45 reduction ratio)
  *  Wheel diameter = 68.5mm → circumference = PI × 68.5 ≈ 215.20mm
- *  mm_per_count = (PI × 68.5) / 2340 ≈ 0.09198 */
-#define ENCODER_COUNTS_PER_REV  2340U
-#define WHEEL_DIAMETER_MM       68.5f
+ *  mm_per_count = (PI × 68.5) / 60000 ≈ 0.00368 */
+#define ENCODER_COUNTS_PER_REV  60000U
+#define WHEEL_DIAMETER_MM       67f
 #define MM_PER_COUNT            (3.1415926f * WHEEL_DIAMETER_MM / (float)ENCODER_COUNTS_PER_REV)
 
 void motor_update_distance(void)
@@ -173,11 +173,13 @@ void vLoggerTask(void *pvParameters)
         float dist_left   = motor_get_distance_left_mm();
         float dist_right  = motor_get_distance_right_mm();
         uint16_t msync    = motor_get_smooth_sync_rate();
+        int32_t enc_total_left  = motor_get_encoder_left();
+        int32_t enc_total_right = motor_get_encoder_right();
 
         int n = snprintf(buf, sizeof(buf),
                          "[%lu.%03lus] B:%lu G:%lu | qps:%-3u msync:%-3u yaw:%7.2f° | "
                          "tgt L:%5.0f R:%5.0f mm/s | spd L:%5.0f R:%5.0f mm/s | "
-                         "pwm L:%+5d R:%+5d | dist L:%.1f R:%.1f mm\r\n",
+                         "pwm L:%+5d R:%+5d | dist L:%.1f R:%.1f mm | enc L:%ld R:%ld\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
@@ -187,7 +189,8 @@ void vLoggerTask(void *pvParameters)
                          (double) tgt_left,  (double) tgt_right,
                          (double) spdL_mm_s, (double) spdR_mm_s,
                          (int) pwm_left, (int) pwm_right,
-                         (double) dist_left, (double) dist_right);
+                         (double) dist_left, (double) dist_right,
+                         (long) enc_total_left, (long) enc_total_right);
 
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
