@@ -54,6 +54,10 @@ typedef struct {
     /* flags */
     volatile bool    initialized;          // true after init succeeds
 
+    /* derived: encoder → travel distance (computed in vMotorSyncTask) */
+    volatile float    distance_left_mm;     // travel distance (mm), left wheel
+    volatile float    distance_right_mm;    // travel distance (mm), right wheel
+
     /* sync statistics (qps-style) */
     volatile uint16_t sync_count;         // total frame count since init
     volatile uint32_t last_sync_tick;     // FreeRTOS tick of last rate snap
@@ -81,6 +85,8 @@ float    motor_get_wheel_diameter(void);
 uint16_t motor_get_deadzone(void);
 bool     motor_is_initialized(void);
 uint16_t motor_get_sync_rate(void);       /* frames/sec from sync_encoder_from_device */
+float    motor_get_distance_left_mm(void);  /* encoder_total_left → travel distance (mm) */
+float    motor_get_distance_right_mm(void); /* encoder_total_right → travel distance (mm) */
 
 /* ================================================================
  *  I2C health check (motor_driver.c)
@@ -111,6 +117,11 @@ void motor_set_reduction_ratio(uint16_t val);
 void motor_set_wheel_diameter(float val);
 void motor_set_deadzone(uint16_t val);
 void motor_set_initialized(bool val);
+void motor_set_distance_left_mm(float val);
+void motor_set_distance_right_mm(float val);
+
+/* encoder → travel distance (defined in src/software/task.c) */
+void motor_update_distance(void);
 
 #ifdef __cplusplus
 }

@@ -45,7 +45,7 @@
         {
             "label": "MSPM0: Flash (probe-rs)",
             "type": "shell",
-            "command": "probe-rs download --probe \"0451:bef3-2:NOserial\" --chip MSPM0G3507 --protocol swd \"${workspaceFolder}/Debug/empty.out\" && probe-rs reset --probe \"0451:bef3-2:NOserial\" --chip MSPM0G3507 --protocol swd",
+            "command": "probe-rs download --probe \"0451:bef3-2:NOserial\" --chip MSPM0G3507 --protocol swd \"${workspaceFolder}/Debug/empty.out\"; if ($?) { probe-rs reset --probe \"0451:bef3-2:NOserial\" --chip MSPM0G3507 --protocol swd }",
             "problemMatcher": [],
             "group": "none",
             "presentation": {

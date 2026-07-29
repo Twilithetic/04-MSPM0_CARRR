@@ -27,7 +27,7 @@
             "name": "MSPM0G3507: Attach Only (no flash)",
             "cwd": "${workspaceFolder}",
             "chip": "MSPM0G3507",
-            "probe": "0451:bef3-2:MG350001",
+            "probe": "0451:bef3-2:NOserial",
             "wireProtocol": "Swd",
             "connectUnderReset": false,
             "flashingConfig": {

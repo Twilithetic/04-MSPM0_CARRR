@@ -409,6 +409,16 @@ uint16_t motor_get_sync_rate(void)
     return (uint16_t)(((uint32_t)ds * 1000U) / dt);
 }
 
+float motor_get_distance_left_mm(void)
+{
+    return g_motor_driver_reg.distance_left_mm;
+}
+
+float motor_get_distance_right_mm(void)
+{
+    return g_motor_driver_reg.distance_right_mm;
+}
+
 /* ── Write access (Proxy only) ── */
 
 void motor_set_encoder_left(int32_t val)   { g_motor_driver_reg.encoder_total_left = val; }
@@ -425,3 +435,6 @@ void motor_set_reduction_ratio(uint16_t val) { g_motor_driver_reg.reduction_rati
 void motor_set_wheel_diameter(float val)     { g_motor_driver_reg.wheel_diameter = val; }
 void motor_set_deadzone(uint16_t val)        { g_motor_driver_reg.deadzone = val; }
 void motor_set_initialized(bool val)         { g_motor_driver_reg.initialized = val; }
+
+void motor_set_distance_left_mm(float val)   { g_motor_driver_reg.distance_left_mm = val; }
+void motor_set_distance_right_mm(float val)  { g_motor_driver_reg.distance_right_mm = val; }

@@ -31,6 +31,22 @@ extern void lsm6dsv16x_sync_from_device(void);
 #include <semphr.h>
 #include <stdio.h>
 
+/* ── Encoder → travel distance conversion ──
+ *  2340 counts per wheel-rev (13 lines × 4 edges × 45 reduction ratio)
+ *  Wheel diameter = 68.5mm → circumference = PI × 68.5 ≈ 215.20mm
+ *  mm_per_count = (PI × 68.5) / 2340 ≈ 0.09198 */
+#define ENCODER_COUNTS_PER_REV  2340U
+#define WHEEL_DIAMETER_MM       68.5f
+#define MM_PER_COUNT            (3.1415926f * WHEEL_DIAMETER_MM / (float)ENCODER_COUNTS_PER_REV)
+
+void motor_update_distance(void)
+{
+    float dist_left  = (float)g_motor_driver_reg.encoder_total_left  * MM_PER_COUNT;
+    float dist_right = (float)g_motor_driver_reg.encoder_total_right * MM_PER_COUNT;
+    motor_set_distance_left_mm(dist_left);
+    motor_set_distance_right_mm(dist_right);
+}
+
 /* ---- Semaphore (created in main.c before scheduler starts) ---- */
 extern SemaphoreHandle_t g_scanDoneSem;
 extern SemaphoreHandle_t g_motorDoneSem;
@@ -152,10 +168,12 @@ void vLoggerTask(void *pvParameters)
         int32_t tot_left  = motor_get_encoder_left();
         int32_t tot_right = motor_get_encoder_right();
         uint16_t msync    = motor_get_sync_rate();
+        float dist_left   = motor_get_distance_left_mm();
+        float dist_right  = motor_get_distance_right_mm();
 
         int n = snprintf(buf, sizeof(buf),
                          "[%lu.%03lus] B:%lu G:%lu | qps:%-3u msync:%-3u yaw:%7.2f° | "
-                         "enc L:%d R:%d | spd L:%d R:%d | total L:%ld R:%ld\r\n",
+                         "enc L:%d R:%d | spd L:%d R:%d | total L:%ld R:%ld | dist L:%.1f R:%.1f mm\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
@@ -164,7 +182,8 @@ void vLoggerTask(void *pvParameters)
                          (double) yaw   / 100.0,
                          (int) enc_left, (int) enc_right,
                          (int) spd_left, (int) spd_right,
-                         (long) tot_left, (long) tot_right);
+                         (long) tot_left, (long) tot_right,
+                         (double) dist_left, (double) dist_right);
 
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
@@ -212,6 +231,9 @@ void vMotorSyncTask(void *pvParameters)
     for (;;) {
         /* sync: read UART encoders → write shadow register */
         sync_encoder_from_device(&g_motor_driver_reg);
+
+        /* convert encoder total → travel distance (mm) */
+        motor_update_distance();
 
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
