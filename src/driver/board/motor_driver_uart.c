@@ -237,7 +237,7 @@ bool motor_driver_init(void)
 
     /* Stop motors */
     motor_send_cmd_nowait("$spd:0,0,0,0#", 50);
-    motor_send_cmd_nowait("$pwm:0,2000,0,2000#", 50);
+    motor_send_cmd_nowait("$pwm:0,0,0,0#", 50);
     
 
     /* Health check — this one returns a response */
@@ -341,6 +341,7 @@ void flush_speed_to_device(MotorDriverReg *r)
 
 void flush_pwm_to_device(MotorDriverReg *r)
 {
+    // motor_send_cmd_nowait("$pwm:0,2000,0,2000#", 50);
     char buf[64];
     int n = snprintf(buf, sizeof(buf), "$pwm:0,%d,0,%d#",
                      (int)r->target_pwm_right, (int)r->target_pwm_left);

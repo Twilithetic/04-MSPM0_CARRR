@@ -258,19 +258,18 @@ void vCarCtrlTask(void *pvParameters)
     if (!motor_is_initialized()) {
         vTaskDelete(NULL);
     }
-        g_motor_driver_reg.target_pwm_left = 2000;
 
-    g_motor_driver_reg.target_pwm_right = 2000;
-
-        flush_pwm_to_device(&g_motor_driver_reg);  /* stop motors before init */
     // car_ctrl_set_target_speed(500.0f, 500.0f);  /* stop car before motor init */
     
     TickType_t xLastWakeTime = xTaskGetTickCount();
     for (;;) {
 
+                g_motor_driver_reg.target_pwm_left = 1000;
+
+    g_motor_driver_reg.target_pwm_right = 1000;
         /* PID speed control → PWM → flush to device */
         // car_ctrl_pid_tick();
-        
+        flush_pwm_to_device(&g_motor_driver_reg);
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }
