@@ -43,18 +43,18 @@ float g_ctrl_err_left    = 0.0f;
 float g_ctrl_err_right   = 0.0f;
 
 /* ---- Line-follow setpoint & limits ---- */
-#define LF_SIDE_TARGET  0.0f   /* white-val per side when line centered */
-#define LF_BASE_SPEED   500.0f  /* mm/s cruise speed                     */
+#define LF_SIDE_TARGET  6.0f   /* white-val per side when line centered */
+#define LF_BASE_SPEED   200.0f  /* mm/s cruise speed                     */
 #define LF_MAX_SPEED    1000.0f  /* mm/s per-wheel clamp                  */
 
 /* ---- Left PID gains (left_white_val → speed_left) ---- */
 #define LF_L_KP  0.0f
-#define LF_L_KI  1.0f
+#define LF_L_KI  0.5f
 #define LF_L_KD  0.0f
 
 /* ---- Right PID gains (right_white_val → speed_right) ---- */
 #define LF_R_KP  0.0f
-#define LF_R_KI  1.0f
+#define LF_R_KI  0.5f
 #define LF_R_KD  0.0f
 
 /* Independent PID state, one per side */
@@ -92,7 +92,7 @@ void vCarCtrlTask(void *pvParameters)
     }
 
     /* Board PID */
-    motor_send_pid(0.5f, 0.02f, 0.0f);
+    motor_send_pid(0.8f, 0.06f, 0.5f);
 
     /* Kill any PWM override — use speed loop only */
     motor_send_pwm(0, 0, 0, 0);
