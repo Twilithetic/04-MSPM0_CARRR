@@ -37,6 +37,10 @@ struct Line8Reg {
     volatile uint8_t  active_count;              /* 0..8 */
     volatile int16_t  position;                  /* 0-7000, center=3500 */
     volatile int16_t  error;                     /* position - 3500 */
+
+    /* ---- derived: white-level encoded values ---- */
+    volatile uint8_t  left_white_val;            /* ch0..3 encoded */
+    volatile uint8_t  right_white_val;           /* ch4..7 encoded */
 };
 
 Line8Reg g_line8_reg = {0};
@@ -117,4 +121,29 @@ void line8_compute_position(void)
     }
 
     g_line8_reg.error = g_line8_reg.position - 3500;
+}
+
+void line8_compute_white_vals(void)
+{
+    g_line8_reg.left_white_val = (uint8_t)(
+          (g_line8_reg.line[0] ? 2 : 0)
+        + (g_line8_reg.line[1] ? 4 : 0)
+        + (g_line8_reg.line[2] ? 8 : 0)
+        + (g_line8_reg.line[3] ? 16 : 0));
+
+    g_line8_reg.right_white_val = (uint8_t)(
+          (g_line8_reg.line[4] ? 16 : 0)
+        + (g_line8_reg.line[5] ? 8 : 0)
+        + (g_line8_reg.line[6] ? 4 : 0)
+        + (g_line8_reg.line[7] ? 2 : 0));
+}
+
+uint8_t line8_get_left_white_val(void)
+{
+    return g_line8_reg.left_white_val;
+}
+
+uint8_t line8_get_right_white_val(void)
+{
+    return g_line8_reg.right_white_val;
 }

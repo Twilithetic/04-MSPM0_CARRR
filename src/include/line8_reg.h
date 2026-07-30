@@ -64,12 +64,17 @@ int16_t  line8_get_position(void);
 /** Deviation from center = position - 3500  (signed) */
 int16_t  line8_get_error(void);
 
+/** Encoded 4-bit white values: left=ch0..3, right=ch4..7 */
+uint8_t  line8_get_left_white_val(void);
+uint8_t  line8_get_right_white_val(void);
+
 /* ================================================================
  *  Write access (Proxy only — declared for line8_reg.c linkage)
  * ================================================================ */
 
 void line8_set_raw(uint8_t idx, uint8_t val);
 void line8_compute_position(void);               /* recalc position/error/mask */
+void line8_compute_white_vals(void);             /* recalc left/right white val */
 
 #ifdef __cplusplus
 }

@@ -66,6 +66,9 @@ void vLine8SyncTask(void *pvParameters)
         /* sync: read the 8 IR GPIO inputs → write shadow register */
         sync_line8_from_device(&g_line8_reg);
 
+        /* compute derived white-values */
+        line8_compute_white_vals();
+
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }
