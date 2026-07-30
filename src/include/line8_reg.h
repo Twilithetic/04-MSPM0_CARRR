@@ -68,6 +68,9 @@ int16_t  line8_get_error(void);
 uint8_t  line8_get_left_white_val(void);
 uint8_t  line8_get_right_white_val(void);
 
+/** All 8 raw bits packed: raw[7:0] → byte (raw[0]=bit0) */
+uint8_t  line8_get_raw_byte(void);
+
 /* ================================================================
  *  Write access (Proxy only — declared for line8_reg.c linkage)
  * ================================================================ */

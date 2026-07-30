@@ -44,9 +44,9 @@ float g_ctrl_err_right   = 0.0f;
 
 /* ---- Line-follow PID (tune on track) ---- */
 #define LF_KP          5.0f    /* mm/s per unit of left/right imbalance */
-#define LF_KI          0.5f
+#define LF_KI          100.0f
 #define LF_KD          0.0f
-#define LF_BASE_SPEED  200.0f  /* mm/s cruise speed                     */
+#define LF_BASE_SPEED  300.0f  /* mm/s cruise speed                     */
 #define LF_MAX_SPEED   500.0f  /* mm/s per-wheel clamp                  */
 
 /* ── Car Speed Control Task (prio 3): 100Hz ── */
@@ -70,6 +70,8 @@ void vCarCtrlTask(void *pvParameters)
 
     float err_prev  = 0.0f;
     float err_integ = 0.0f;
+    float err_integ_L = 0.0f;
+    float err_integ_R = 0.0f;
 
     for (;;) {
         /* Left/right lit-LED difference from the shadow register */
@@ -77,20 +79,23 @@ void vCarCtrlTask(void *pvParameters)
                   - (float) line8_get_right_white_val();
 
         /* PID on the imbalance */
-        err_integ += err / 100.0f;  /* integral over 1 sec (100Hz) */
-        float corr = LF_KP * err
-                   + LF_KI * err_integ
-                   + LF_KD * (err - err_prev);
-        err_prev = err;
+        err_integ_L += LF_KI / 100.0f * line8_get_left_white_val();  
+        err_integ_R += LF_KI / 100.0f * line8_get_right_white_val();
 
-        float speed_left  = LF_BASE_SPEED + corr;
-        float speed_right = LF_BASE_SPEED - corr;
+        float speed_left  = LF_BASE_SPEED - err_integ_L;
+        float speed_right = LF_BASE_SPEED - err_integ_R;
 
         /* Clamp: no reverse, cap top speed */
         if (speed_left  < 0.0f)         speed_left  = 0.0f;
         if (speed_left  > LF_MAX_SPEED) speed_left  = LF_MAX_SPEED;
         if (speed_right < 0.0f)         speed_right = 0.0f;
         if (speed_right > LF_MAX_SPEED) speed_right = LF_MAX_SPEED;
+        if (line8_get_left_white_val() <= 4) {
+            speed_left = LF_BASE_SPEED;  /* left side lost line → stop left wheel */
+        }
+        if (line8_get_right_white_val() <= 4) {
+            speed_right = LF_BASE_SPEED; /* right side lost line → stop right wheel */
+        }
 
         /* Publish state for the logger (err shown per side, ±same imbalance) */
         g_ctrl_err_left    = err;
