@@ -34,6 +34,8 @@ static const float speed_targets[SPEED_COUNT] = {
     [SPEED_SLOW] = 200.0f,
 };
 
+#define SPEED_CYCLE_S  5U   /* seconds per speed step */
+
 /* ── Car Speed Control Task (prio 3): 100Hz ── */
 void vCarCtrlTask(void *pvParameters)
 {
@@ -51,26 +53,27 @@ void vCarCtrlTask(void *pvParameters)
     TickType_t     xLastWakeTime = xTaskGetTickCount();
     speed_state_t  state         = SPEED_FAST;
     speed_state_t  prev_state    = SPEED_COUNT;  /* force first TX */
+    motor_send_speed_mm_s(500,500);
 
     for (;;) {
-        /* ── Decide state from elapsed seconds ── */
-        uint32_t second = (uint32_t)(xTaskGetTickCount() / configTICK_RATE_HZ);
-        state = (second & 2U) ? SPEED_SLOW : SPEED_FAST;
+        // /* ── Decide state from elapsed seconds ── */
+        // uint32_t second = (uint32_t)(xTaskGetTickCount() / configTICK_RATE_HZ);
+        // state = ((second / SPEED_CYCLE_S) & 1U) ? SPEED_SLOW : SPEED_FAST;
 
-        /* ── Only send when state actually changed ── */
-        if (state != prev_state) {
-            float target = speed_targets[state];
-            motor_send_speed_mm_s(target, target);
+        // /* ── Only send when state actually changed ── */
+        // if (state != prev_state) {
+        //     float target = speed_targets[state];
+        //     motor_send_speed_mm_s(target, target);
 
-            char buf[64];
-            int n = snprintf(buf, sizeof(buf),
-                             "\r\n[CTRL] target → %.0f mm/s\r\n",
-                             (double)target);
-            if (n > 0 && (size_t)n < sizeof(buf)) {
-                uart_send_async((const uint8_t *)buf, (size_t)n, 0);
-            }
-            prev_state = state;
-        }
+        //     char buf[64];
+        //     int n = snprintf(buf, sizeof(buf),
+        //                      "\r\n[CTRL] target → %.0f mm/s\r\n",
+        //                      (double)target);
+        //     if (n > 0 && (size_t)n < sizeof(buf)) {
+        //         uart_send_async((const uint8_t *)buf, (size_t)n, 0);
+        //     }
+        //     prev_state = state;
+        // }
 
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
