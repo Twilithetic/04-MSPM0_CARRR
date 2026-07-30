@@ -247,6 +247,7 @@ bool motor_driver_init(void)
     /* Stop motors */
     motor_send_cmd_nowait("$spd:0,0,0,0#", 50);
     motor_send_cmd_nowait("$pwm:0,0,0,0#", 50);
+    // motor_send_cmd_nowait("$flash_reset#", 50);
 
     /* Health check — this one returns a response */
     const char *resp = motor_send_cmd("$read_vol#", 200);
@@ -327,7 +328,7 @@ void motor_send_speed_mm_s(float left_mm_s, float right_mm_s)
     int16_t l = (int16_t)(left_mm_s  * MM_S_TO_COUNTS_10MS);
     int16_t r = (int16_t)(right_mm_s * MM_S_TO_COUNTS_10MS);
 
-    motor_send_speed(0, r, 0, l);   /* M2=RIGHT wheel, M4=LEFT wheel */
+    motor_send_speed(0, r / 3, 0, l / 3);   /* M2=RIGHT wheel, M4=LEFT wheel */
 
     #undef WHEEL_CIRC_MM
     #undef MM_S_TO_COUNTS_10MS

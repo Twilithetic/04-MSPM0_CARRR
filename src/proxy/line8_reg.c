@@ -126,16 +126,27 @@ void line8_compute_position(void)
 void line8_compute_white_vals(void)
 {
     g_line8_reg.left_white_val = (uint8_t)(
-          (g_line8_reg.raw[0] ? 2 : 0)
-        + (g_line8_reg.raw[1] ? 4 : 0)
-        + (g_line8_reg.raw[2] ? 8 : 0)
-        + (g_line8_reg.raw[3] ? 16 : 0));
+          (g_line8_reg.raw[0] ? 16 : 0)
+        + (g_line8_reg.raw[1] ? 8 : 0)
+        + (g_line8_reg.raw[2] ? 4 : 0)
+        + (g_line8_reg.raw[3] ? 2 : 0));
 
     g_line8_reg.right_white_val = (uint8_t)(
-          (g_line8_reg.raw[4] ? 16 : 0)
-        + (g_line8_reg.raw[5] ? 8 : 0)
-        + (g_line8_reg.raw[6] ? 4 : 0)
-        + (g_line8_reg.raw[7] ? 2 : 0));
+          (g_line8_reg.raw[4] ? 2 : 0)
+        + (g_line8_reg.raw[5] ? 4 : 0)
+        + (g_line8_reg.raw[6] ? 8 : 0)
+        + (g_line8_reg.raw[7] ? 16 : 0));
+    // g_line8_reg.left_white_val = (uint8_t)(
+    //       (g_line8_reg.raw[0] ? 1 : 0)
+    //     + (g_line8_reg.raw[1] ? 1 : 0)
+    //     + (g_line8_reg.raw[2] ? 1 : 0)
+    //     + (g_line8_reg.raw[3] ? 1 : 0));
+
+    // g_line8_reg.right_white_val = (uint8_t)(
+    //       (g_line8_reg.raw[4] ? 1 : 0)
+    //     + (g_line8_reg.raw[5] ? 1 : 0)
+    //     + (g_line8_reg.raw[6] ? 1 : 0)
+    //     + (g_line8_reg.raw[7] ? 1 : 0));
 }
 
 uint8_t line8_get_left_white_val(void)

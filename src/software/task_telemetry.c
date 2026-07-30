@@ -69,7 +69,7 @@ void vLine8SyncTask(void *pvParameters)
         /* compute derived white-values */
         line8_compute_white_vals();
 
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1));
     }
 }
 
