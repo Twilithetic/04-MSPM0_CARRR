@@ -263,7 +263,7 @@ bool cmd_config_tt_encoder(MotorDriverReg *r)
 {
     (void)r;
     motor_send_cmd_nowait("$mtype:3#", 100);
-    motor_send_cmd_nowait("$deadzone:150#", 100);
+    motor_send_cmd_nowait("$deadzone:0#", 100);
     motor_send_cmd_nowait("$mline:500#", 100);
     motor_send_cmd_nowait("$mphase:30#", 100);
     motor_send_cmd_nowait("$wdiameter:67#", 100);
@@ -303,7 +303,7 @@ void motor_send_speed(int16_t m1, int16_t m2, int16_t m3, int16_t m4)
     char buf[64];
     int n = snprintf(buf, sizeof(buf), "$spd:%d,%d,%d,%d#",
                      (int)m1, (int)m2, (int)m3, (int)m4);
-    if (n > 0 && (size_t)n < sizeof(buf)) motor_send_cmd_nowait(buf, 50);
+    if (n > 0 && (size_t)n < sizeof(buf)) motor_uart_send(buf);
 }
 
 /*
