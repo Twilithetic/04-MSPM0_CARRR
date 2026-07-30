@@ -2,10 +2,11 @@
  *  ======== task_control.c ========
  *  Control tasks — car speed / steering.
  *
- *  vCarCtrlTask — PWM deadzone sweep test.
- *    Ramps PWM from 0 by +100 every 5s on both wheels (M2 & M4).
- *    Watch the logger's 10ms encoder delta + speed column to find the
- *    PWM value where wheels actually start turning (= deadzone boundary).
+ *  vCarCtrlTask — speed sweep test.
+ *    Ramps target speed from 0 → 500 mm/s in 20 mm/s steps.
+ *    5s per step.  Uses board internal PID (closed-loop speed control).
+ *    Deadzone found at PWM=1900 — speed commands below ~deadzone
+ *    may produce no motion; this sweep maps target → actual response.
  */
 
 #include "include/app_tasks.h"
@@ -21,8 +22,9 @@
 /* ---- Semaphores ---- */
 extern SemaphoreHandle_t g_ctrlSyncSem;
 
-#define DEADZONE_STEP_PWM   100     /* +100 PWM per step */
-#define DEADZONE_STEP_SEC   3U      /* seconds per step  */
+#define SPEED_STEP_MM_S  20.0f   /* mm/s per step       */
+#define SPEED_STEP_SEC   5U      /* seconds per step    */
+#define SPEED_MAX        500.0f  /* upper limit (mm/s)  */
 
 /* ── Car Speed Control Task (prio 3): 100Hz ── */
 void vCarCtrlTask(void *pvParameters)
@@ -35,36 +37,37 @@ void vCarCtrlTask(void *pvParameters)
         vTaskDelete(NULL);
     }
 
-    TickType_t xLastWakeTime = xTaskGetTickCount();
-    int16_t    pwm           = 0;
-    int16_t    prev_pwm      = -1;
+    /* Board PID */
+    motor_send_pid(0.5f, 0.02f, 0.0f);
 
-    /* Stop speed-control loop so it doesn't fight our PWM */
-    motor_send_speed(0, 0, 0, 0);
+    /* Kill any PWM override — use speed loop only */
+    motor_send_pwm(0, 0, 0, 0);
+
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+    float      target        = 0.0f;
+    float      prev_target   = -1.0f;
 
     for (;;) {
-        /* ── Ramp: step every DEADZONE_STEP_SEC seconds ── */
+        /* ── Ramp speed every SPEED_STEP_SEC seconds ── */
         uint32_t second = (uint32_t)(xTaskGetTickCount() / configTICK_RATE_HZ);
-        pwm = (int16_t)((second / DEADZONE_STEP_SEC) * DEADZONE_STEP_PWM);
+        target = (float)(second / SPEED_STEP_SEC) * SPEED_STEP_MM_S;
 
-        /* Clamp to max PWM */
-        if (pwm > 3600) pwm = 3600;
+        /* Clamp */
+        if (target > SPEED_MAX) target = SPEED_MAX;
 
-        /* Only print & send when PWM changes (once per step) */
-        if (pwm != prev_pwm) {
+        /* Only print & send when target changes (once per step) */
+        if (target != prev_target) {
             char buf[64];
             int n = snprintf(buf, sizeof(buf),
-                             "\r\n[CTRL] PWM → %+d (%d%%)\r\n",
-                             (int)pwm,
-                             (int)((int32_t)pwm * 100 / 3600));
+                             "\r\n[CTRL] speed target → %.0f mm/s\r\n",
+                             (double)target);
             if (n > 0 && (size_t)n < sizeof(buf)) {
                 uart_send_async((const uint8_t *)buf, (size_t)n, 0);
             }
-            prev_pwm = pwm;
+            prev_target = target;
         }
 
-        /* M2=RIGHT, M4=LEFT */
-        motor_send_pwm(0, pwm, 0, pwm);
+        motor_send_speed_mm_s(target, target);
 
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }

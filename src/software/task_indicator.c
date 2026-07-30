@@ -123,6 +123,6 @@ void vLoggerTask(void *pvParameters)
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
         }
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(500));
     }
 }
