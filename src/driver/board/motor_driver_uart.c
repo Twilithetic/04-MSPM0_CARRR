@@ -263,7 +263,7 @@ bool cmd_config_tt_encoder(MotorDriverReg *r)
 {
     (void)r;
     motor_send_cmd_nowait("$mtype:3#", 100);
-    motor_send_cmd_nowait("$deadzone:1250#", 100);
+    motor_send_cmd_nowait("$deadzone:150#", 100);
     motor_send_cmd_nowait("$mline:500#", 100);
     motor_send_cmd_nowait("$mphase:30#", 100);
     motor_send_cmd_nowait("$wdiameter:67#", 100);
@@ -278,7 +278,7 @@ bool cmd_config_tt_encoder(MotorDriverReg *r)
 
     motor_set_motor_type(3);     motor_set_pulse_line(500);
     motor_set_reduction_ratio(30); motor_set_wheel_diameter(67.0f);
-    motor_set_deadzone(1250);    motor_set_comm_status(0);
+    motor_set_deadzone(150);    motor_set_comm_status(0);
     motor_set_initialized(true);
     return true;
 }
