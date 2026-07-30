@@ -4,8 +4,8 @@
  *
  *  Files:
  *    task_indicator.c  — LED heartbeat + logger telemetry output
- *    task_init.c       — one-shot init (I2C scan, motor config)
- *    task_telemetry.c  — sensor telemetry (IMU sync, motor sync, stats)
+ *    task_init.c       — one-shot init (I2C scan, motor config, line8 config)
+ *    task_telemetry.c  — sensor telemetry (IMU sync, motor sync, line8 sync, stats)
  *    task_control.c    — car speed / steering control
  */
 
@@ -24,5 +24,7 @@ void vLSM6DSV16XSyncTask(void *pvParameters);
 void vMotorSyncTask(void *pvParameters);
 void vCarCtrlTask(void *pvParameters);
 void vStatsTask(void *pvParameters);
+void vLine8InitTask(void *pvParameters);
+void vLine8SyncTask(void *pvParameters);
 
 #endif /* APP_TASKS_H */
