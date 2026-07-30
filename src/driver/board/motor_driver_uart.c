@@ -303,7 +303,7 @@ void motor_send_speed(int16_t m1, int16_t m2, int16_t m3, int16_t m4)
     char buf[64];
     int n = snprintf(buf, sizeof(buf), "$spd:%d,%d,%d,%d#",
                      (int)m1, (int)m2, (int)m3, (int)m4);
-    if (n > 0 && (size_t)n < sizeof(buf)) motor_uart_send(buf);
+    if (n > 0 && (size_t)n < sizeof(buf)) motor_send_cmd_nowait(buf, 50);
 }
 
 /*
@@ -318,19 +318,20 @@ void motor_send_speed(int16_t m1, int16_t m2, int16_t m3, int16_t m4)
  */
 void motor_send_speed_mm_s(float left_mm_s, float right_mm_s)
 {
-    /* Conversion constant: (13*4*45) / (PI * 67.0) / 100 */
-    #define COUNTS_PER_REV       (500.0f * 4.0f * 30.0f)     /* 60000 */
-    #define WHEEL_CIRC_MM        (3.1415926f * 67.0f)       /* ~210.5 */
-    #define MM_S_TO_COUNTS_10MS  (COUNTS_PER_REV / WHEEL_CIRC_MM / 100.0f)  /* ~0.1112 */
+    // motor_send_cmd_nowait("$spd:0,0,0,0#", 50);   /* stop first */
+    // /* Conversion constant: (13*4*45) / (PI * 67.0) / 100 */
+    // #define COUNTS_PER_REV       (500.0f * 4.0f * 30.0f)     /* 60000 */
+    // #define WHEEL_CIRC_MM        (3.1415926f * 67.0f)       /* ~210.5 */
+    // #define MM_S_TO_COUNTS_10MS  (COUNTS_PER_REV / WHEEL_CIRC_MM / 100.0f)  /* ~0.1112 */
 
-    int16_t l = (int16_t)(left_mm_s  * MM_S_TO_COUNTS_10MS);
-    int16_t r = (int16_t)(right_mm_s * MM_S_TO_COUNTS_10MS);
+    // int16_t l = (int16_t)(left_mm_s  * MM_S_TO_COUNTS_10MS);
+    // int16_t r = (int16_t)(right_mm_s * MM_S_TO_COUNTS_10MS);
 
-    motor_send_speed(0, r, 0, l);   /* M2=RIGHT wheel, M4=LEFT wheel */
+    motor_send_speed(0, right_mm_s, 0, left_mm_s);   /* M2=RIGHT wheel, M4=LEFT wheel */
 
-    #undef WHEEL_CIRC_MM
-    #undef MM_S_TO_COUNTS_10MS
-    #undef COUNTS_PER_REV
+    // #undef WHEEL_CIRC_MM
+    // #undef MM_S_TO_COUNTS_10MS
+    // #undef COUNTS_PER_REV
 }
 
 /* ---- Direct PWM: raw PWM bypassing board PID ----
