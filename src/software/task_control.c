@@ -18,6 +18,7 @@
 #include <task.h>
 #include <semphr.h>
 #include <stdio.h>
+#include <line8_reg.h>
 
 /* ---- Semaphores ---- */
 extern SemaphoreHandle_t g_ctrlSyncSem;
@@ -44,28 +45,10 @@ void vCarCtrlTask(void *pvParameters)
     motor_send_pwm(0, 0, 0, 0);
 
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    float      target        = 0.0f;
-    float      prev_target   = -1.0f;
+    float speed_xunhang = 200.0f;
 
     for (;;) {
-        /* ── Ramp speed every SPEED_STEP_SEC seconds ── */
-        uint32_t second = (uint32_t)(xTaskGetTickCount() / configTICK_RATE_HZ);
-        target = (float)(second / SPEED_STEP_SEC) * SPEED_STEP_MM_S;
-
-        /* Clamp */
-        if (target > SPEED_MAX) target = SPEED_MAX;
-
-        /* Only print & send when target changes (once per step) */
-        if (target != prev_target) {
-            char buf[64];
-            int n = snprintf(buf, sizeof(buf),
-                             "\r\n[CTRL] speed target → %.0f mm/s\r\n",
-                             (double)target);
-            if (n > 0 && (size_t)n < sizeof(buf)) {
-                uart_send_async((const uint8_t *)buf, (size_t)n, 0);
-            }
-            prev_target = target;
-        }
+        g_line8_reg
 
         motor_send_speed_mm_s(target, target);
 

@@ -3,7 +3,7 @@
  *  Telemetry / observer tasks — poll sensors, sync shadow registers, compute stats.
  *
  *  vLSM6DSV16XSyncTask — IMU poll (prio 3), syncs LSM6DSV16X → shadow @ 10Hz
- *  vLine8SyncTask      — line8 sensor sync (prio 3), reads UART2 → shadow @ 100Hz
+ *  vLine8SyncTask      — line8 sensor sync (prio 3), reads GPIO → shadow @ 100Hz
  *  vMotorSyncTask      — motor encoder sync (prio 3), reads UART1 → shadow @ 100Hz
  *  vStatsTask          — EMA-smooth QPS + motor sync rate @ 1Hz
  */
@@ -18,7 +18,7 @@ extern bool lsm6dsv16x_is_present(void);
 extern bool lsm6dsv16x_init(void);
 extern void lsm6dsv16x_sync_from_device(void);
 
-/* Line8 driver extern */
+/* Line8 driver extern (in src/driver/board/line8_gpio.c) */
 extern void sync_line8_from_device(Line8Reg *r);
 
 #include <FreeRTOS.h>
@@ -29,7 +29,6 @@ extern void sync_line8_from_device(Line8Reg *r);
 extern SemaphoreHandle_t g_scanDoneSem;
 extern SemaphoreHandle_t g_motorSyncSem;
 extern SemaphoreHandle_t g_ctrlSyncSem;
-extern SemaphoreHandle_t g_line8SyncSem;
 
 /* ── IMU sync task (prio 3): runs FOREVER, syncs sensor → shadow @ 10Hz ── */
 void vLSM6DSV16XSyncTask(void *pvParameters)
@@ -60,17 +59,11 @@ void vLine8SyncTask(void *pvParameters)
 {
     (void) pvParameters;
 
-    /* Wait for line8 init to complete */
-    xSemaphoreTake(g_line8SyncSem, portMAX_DELAY);
-
-    if (!line8_is_initialized()) {
-        vTaskDelete(NULL);
-    }
-
+    /* GPIO pins are configured by SYSCFG_DL_init() — nothing else to wait for */
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
     for (;;) {
-        /* sync: read UART2 frames → parse → write shadow register */
+        /* sync: read the 8 IR GPIO inputs → write shadow register */
         sync_line8_from_device(&g_line8_reg);
 
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));

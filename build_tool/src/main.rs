@@ -61,9 +61,9 @@ const C_FILES: &[(&str, &str)] = &[
     // We include the per‑board drivers_config variant here.
     // ("board_drivers_config.c", "src/driver/board/board_drivers_config.c"),
     ("motor_driver_uart.c", "src/driver/board/motor_driver_uart.c"),
-    // ---- Line8 sensor (UART2) ----
-    ("line8_driver_uart.c", "src/driver/board/line8_driver_uart.c"),
-    ("line8_reg.c",         "src/proxy/line8_reg.c"),
+    // ---- Line8 sensor (GPIO) ----
+    ("line8_gpio.c", "src/driver/board/line8_gpio.c"),
+    ("line8_reg.c",  "src/proxy/line8_reg.c"),
     // ---- IMU (LSM6DSV16X) ----
     ("LSM6DSV16X.c",    "src/driver/board/LSM6DSV16X.c"),
     ("lsm6dsv16x_reg.c", "src/driver/board/lsm6dsv16x_reg.c"),
@@ -111,7 +111,7 @@ const OBJS: &[&str] = &[
     // "ti_drivers_i2c1_config",  // not needed — GPIO bit-bang I2C
     // "board_drivers_config",    // conflicts with ti_drivers_i2c_config
     "motor_driver_uart",
-    "line8_driver_uart",
+    "line8_gpio",
     "line8_reg",
     "LSM6DSV16X",
     "lsm6dsv16x_reg",

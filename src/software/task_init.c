@@ -5,19 +5,14 @@
  *  vI2CScanTask   — I2C bus scan (prio 2), signals vLSM6DSV16XSyncTask + vLoggerTask
  *  vMotorInitTask — motor driver init + TT encoder config (prio 2),
  *                   signals vLoggerTask / vMotorSyncTask / vCarCtrlTask
- *  vLine8InitTask — line8 sensor init (prio 2), signals vLine8SyncTask
  */
 
 #include "include/app_tasks.h"
 #include "include/XDS110_cdc.h"
 #include "include/motor_driver_uart.h"
-#include "include/line8_reg.h"
 
 /* I2C functions (in src/driver/chip/I2C_test.c) */
 extern void i2c_scan_bus(void);
-
-/* Line8 driver (in src/driver/board/line8_driver_uart.c) */
-extern bool line8_driver_init(void);
 
 #include <FreeRTOS.h>
 #include <task.h>
@@ -27,7 +22,6 @@ extern bool line8_driver_init(void);
 extern SemaphoreHandle_t g_scanDoneSem;
 extern SemaphoreHandle_t g_motorDoneSem;
 extern SemaphoreHandle_t g_motorSyncSem;
-extern SemaphoreHandle_t g_line8SyncSem;
 
 /* ── I2C scan task (prio 2): runs first, signals logger when done ── */
 void vI2CScanTask(void *pvParameters)
@@ -61,23 +55,6 @@ void vMotorInitTask(void *pvParameters)
 
     /* Release MotorSync — motor init is done, sync can start */
     xSemaphoreGive(g_motorSyncSem);
-
-    vTaskDelete(NULL);
-}
-
-/* ── Line8 Init Task (prio 2): one-shot config, signals Line8Sync, then delete ── */
-void vLine8InitTask(void *pvParameters)
-{
-    (void) pvParameters;
-
-    /* Wait a moment for sensor to power up */
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
-    /* Init UART2 + send mode command, wait for first valid frame */
-    line8_driver_init();
-
-    /* Release Line8Sync — sensor init is done, sync can start */
-    xSemaphoreGive(g_line8SyncSem);
 
     vTaskDelete(NULL);
 }

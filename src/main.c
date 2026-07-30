@@ -35,9 +35,6 @@ SemaphoreHandle_t g_motorSyncSem = NULL;
 /* ---- Binary semaphore: MotorSync done → CarCtrl runs PID ---- */
 SemaphoreHandle_t g_ctrlSyncSem = NULL;
 
-/* ---- Binary semaphore: Line8Init done → Line8Sync can start periodic sync ---- */
-SemaphoreHandle_t g_line8SyncSem = NULL;
-
 int main(void)
 {
     /* ---- Hardware init ---- */
@@ -61,9 +58,6 @@ int main(void)
     /* Binary semaphore: MotorSync → CarCtrl handshake.
      * Initial 0 — CarCtrl blocks until MotorSync gives it. */
     g_ctrlSyncSem = xSemaphoreCreateBinary();
-
-    /* Binary semaphore: Line8Init done → Line8Sync. */
-    g_line8SyncSem = xSemaphoreCreateBinary();
 
     /* ---- Create application tasks ---- */
     BaseType_t xReturn;
@@ -102,10 +96,6 @@ int main(void)
 
     xReturn = xTaskCreate(vStatsTask, "Stats",    configMINIMAL_STACK_SIZE,
                           NULL,        1,          NULL);
-    configASSERT(xReturn == pdPASS);
-
-    xReturn = xTaskCreate(vLine8InitTask, "Line8Init", configMINIMAL_STACK_SIZE * 4,
-                          NULL,        2,          NULL);
     configASSERT(xReturn == pdPASS);
 
     xReturn = xTaskCreate(vLine8SyncTask, "Line8Sync", configMINIMAL_STACK_SIZE * 4,
