@@ -45,6 +45,7 @@ void sync_line8_from_device(Line8Reg *r)
     line8_set_raw(6, (DL_GPIO_readPins(LINE8_RIGHT_PORT, LINE8_RIGHT_X7_PIN) != 0U) ? 1U : 0U);
     line8_set_raw(7, (DL_GPIO_readPins(LINE8_RIGHT_PORT, LINE8_RIGHT_X8_PIN) != 0U) ? 1U : 0U);
 
-    /* recompute position, error, mask */
+    /* recompute position, error, mask + left/right white values */
     line8_compute_position();
+    line8_compute_white_vals();
 }

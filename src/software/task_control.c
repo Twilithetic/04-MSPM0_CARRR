@@ -2,11 +2,24 @@
  *  ======== task_control.c ========
  *  Control tasks — car speed / steering.
  *
- *  vCarCtrlTask — speed sweep test.
- *    Ramps target speed from 0 → 500 mm/s in 20 mm/s steps.
- *    5s per step.  Uses board internal PID (closed-loop speed control).
- *    Deadzone found at PWM=1900 — speed commands below ~deadzone
- *    may produce no motion; this sweep maps target → actual response.
+ *  vCarCtrlTask — line-following with two independent PIDs @ 100Hz.
+ *    Left and right sides each have their own PID loop:
+ *
+ *      err_left   = SIDE_TARGET - left_white_val
+ *      err_right  = SIDE_TARGET - right_white_val
+ *      speed_left  = BASE - PID_left(err_left)
+ *      speed_right = BASE - PID_right(err_right)
+ *
+ *    white_val is 0-30 per side (higher = whiter = less line).
+ *    SIDE_TARGET is the white level when the line is centered
+ *    (inner sensors, weight 16, sit on the line → 30-16 = 14).
+ *
+ *    Line drifts left → left side darker → left_white_val drops →
+ *    err_left > 0 → left wheel slows; right side gets whiter →
+ *    err_right < 0 → right wheel speeds up → car turns left.
+ *
+ *    Wheel speed closed loop runs on the motor driver board
+ *    (board PID set via motor_send_pid).
  */
 
 #include "include/app_tasks.h"
@@ -19,14 +32,47 @@
 #include <task.h>
 #include <semphr.h>
 #include <stdio.h>
-#include "include/line8_reg.h"
 
 /* ---- Semaphores ---- */
 extern SemaphoreHandle_t g_ctrlSyncSem;
 
-#define SPEED_STEP_MM_S  20.0f   /* mm/s per step       */
-#define SPEED_STEP_SEC   5U      /* seconds per step    */
-#define SPEED_MAX        500.0f  /* upper limit (mm/s)  */
+/* ---- Line-follow setpoint & limits ---- */
+#define LF_SIDE_TARGET  0.0f   /* white-val per side when line centered */
+#define LF_BASE_SPEED   500.0f  /* mm/s cruise speed                     */
+#define LF_MAX_SPEED    1000.0f  /* mm/s per-wheel clamp                  */
+
+/* ---- Left PID gains (left_white_val → speed_left) ---- */
+#define LF_L_KP  0.0f
+#define LF_L_KI  1.0f
+#define LF_L_KD  0.0f
+
+/* ---- Right PID gains (right_white_val → speed_right) ---- */
+#define LF_R_KP  0.0f
+#define LF_R_KI  1.0f
+#define LF_R_KD  0.0f
+
+/* Independent PID state, one per side */
+typedef struct {
+    float err_prev;
+    float err_integ;
+} LinePid;
+
+static float line_pid_run(LinePid *p, float err, float kp, float ki, float kd)
+{
+    p->err_integ += err;
+    float out = kp * err
+              + ki * p->err_integ
+              + kd * (err - p->err_prev);
+    p->err_prev = err;
+    return out;
+}
+
+static float clamp_speed(float mm_s)
+{
+    if (mm_s < 0.0f)         return 0.0f;
+    if (mm_s > LF_MAX_SPEED) return LF_MAX_SPEED;
+    return mm_s;
+}
 
 /* ── Car Speed Control Task (prio 3): 100Hz ── */
 void vCarCtrlTask(void *pvParameters)
@@ -46,20 +92,22 @@ void vCarCtrlTask(void *pvParameters)
     motor_send_pwm(0, 0, 0, 0);
 
     TickType_t xLastWakeTime = xTaskGetTickCount();
-    float speed_xunhang = 200.0f;
+
+    LinePid pid_left  = {0};
+    LinePid pid_right = {0};
 
     for (;;) {
-        uint8_t left_white_val = (uint8_t)(line8_get_line(0) * 2
-                      + line8_get_line(1) * 4
-                      + line8_get_line(2) * 8
-                      + line8_get_line(3) * 16);
-        
-        uint8_t right_white_val = (uint8_t)(line8_get_line(7) * 2
-                      + line8_get_line(6) * 4
-                      + line8_get_line(5) * 8
-                      + line8_get_line(4) * 16);
+        /* Read side-encoded white values from the shadow register */
+        float err_left  = LF_SIDE_TARGET - (float) line8_get_left_white_val();
+        float err_right = LF_SIDE_TARGET - (float) line8_get_right_white_val();
 
-        motor_send_speed_mm_s(speed_xunhang, speed_xunhang);
+        /* Two independent PIDs — one per wheel */
+        float speed_left  = LF_BASE_SPEED
+                           - line_pid_run(&pid_left,  err_left,  LF_L_KP, LF_L_KI, LF_L_KD);
+        float speed_right = LF_BASE_SPEED
+                           - line_pid_run(&pid_right, err_right, LF_R_KP, LF_R_KI, LF_R_KD);
+
+        motor_send_speed_mm_s(clamp_speed(speed_left), clamp_speed(speed_right));
 
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
