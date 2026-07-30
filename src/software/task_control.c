@@ -19,7 +19,7 @@
 #include <task.h>
 #include <semphr.h>
 #include <stdio.h>
-#include <line8_reg.h>
+#include "include/line8_reg.h"
 
 /* ---- Semaphores ---- */
 extern SemaphoreHandle_t g_ctrlSyncSem;

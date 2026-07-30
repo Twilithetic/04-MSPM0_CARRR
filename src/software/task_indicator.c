@@ -111,12 +111,14 @@ void vLoggerTask(void *pvParameters)
         int16_t  line_err   = line8_get_error();
         uint8_t  line_mask  = line8_get_mask();
         uint8_t  line_cnt   = line8_get_active_count();
+        uint8_t  lw_val     = line8_get_left_white_val();
+        uint8_t  rw_val     = line8_get_right_white_val();
 
         int n = snprintf(buf, sizeof(buf),
                          "[%lu.%03lus] B:%lu G:%lu | qps:%-3u msync:%-3u | yaw:%7.2f° | "
                          "spd L:%5.0f R:%5.0f mm/s | "
                          "10ms L:%+5d R:%+5d | dist L:%.1f R:%.1f mm | enc L:%ld R:%ld | "
-                         "line pos:%4d err:%+4d cnt:%u mask:0x%02X\r\n",
+                         "line pos:%4d err:%+4d cnt:%u mask:0x%02X | lw:%u rw:%u\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
@@ -129,7 +131,9 @@ void vLoggerTask(void *pvParameters)
                          (long) enc_total_left, (long) enc_total_right,
                          (int) line_pos, (int) line_err,
                          (unsigned int) line_cnt,
-                         (unsigned int) line_mask);
+                         (unsigned int) line_mask,
+                         (unsigned int) lw_val,
+                         (unsigned int) rw_val);
 
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
