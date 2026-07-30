@@ -103,18 +103,17 @@ void vCarCtrlTask(void *pvParameters)
     LinePid pid_right = {0};
 
     for (;;) {
-        // /* Read side-encoded white values from the shadow register */
-        // g_ctrl_err_left  = LF_SIDE_TARGET - (float) line8_get_left_white_val();
-        // g_ctrl_err_right = LF_SIDE_TARGET - (float) line8_get_right_white_val();
+        /* Read side-encoded white values from the shadow register */
+        g_ctrl_err_left  = LF_SIDE_TARGET - (float) line8_get_left_white_val();
+        g_ctrl_err_right = LF_SIDE_TARGET - (float) line8_get_right_white_val();
 
-        // /* Two independent PIDs — one per wheel */
-        // g_ctrl_speed_left  = LF_BASE_SPEED
-        //                    - line_pid_run(&pid_left,  g_ctrl_err_left,  LF_L_KP, LF_L_KI, LF_L_KD);
-        // g_ctrl_speed_right = LF_BASE_SPEED
-        //                    - line_pid_run(&pid_right, g_ctrl_err_right, LF_R_KP, LF_R_KI, LF_R_KD);
+        /* Two independent PIDs — one per wheel */
+        g_ctrl_speed_left  = LF_BASE_SPEED
+                           - line_pid_run(&pid_left,  g_ctrl_err_left,  LF_L_KP, LF_L_KI, LF_L_KD);
+        g_ctrl_speed_right = LF_BASE_SPEED
+                           - line_pid_run(&pid_right, g_ctrl_err_right, LF_R_KP, LF_R_KI, LF_R_KD);
 
-        // motor_send_speed_mm_s(clamp_speed(g_ctrl_speed_left) / 3, clamp_speed(g_ctrl_speed_right) / 3);
-        motor_send_speed_mm_s(500,500);
+        motor_send_speed_mm_s(clamp_speed(g_ctrl_speed_left) / 3, clamp_speed(g_ctrl_speed_right) / 3);
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }
