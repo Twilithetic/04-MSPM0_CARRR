@@ -69,8 +69,8 @@ void vMotorSyncTask(void *pvParameters)
         /* sync: read UART encoders → write shadow register */
         sync_encoder_from_device(&g_motor_driver_reg);
 
-        /* convert encoder total → travel distance (mm) */
-        motor_update_distance();
+        /* convert encoder → travel distance (mm) + speed (mm/s) */
+        motor_update_derived();
 
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }

@@ -57,6 +57,8 @@ uint16_t motor_get_sync_rate(void);       /* frames/sec from sync_encoder_from_d
 uint16_t motor_get_smooth_sync_rate(void); /* EMA-smoothed sync rate (by vStatsTask) */
 float    motor_get_distance_left_mm(void);  /* encoder_total_left → travel distance (mm) */
 float    motor_get_distance_right_mm(void); /* encoder_total_right → travel distance (mm) */
+float    motor_get_speed_left_mm_s(void);   /* encoder 10ms delta → real-time speed (mm/s) */
+float    motor_get_speed_right_mm_s(void);  /* encoder 10ms delta → real-time speed (mm/s) */
 
 /* ================================================================
  *  I2C health check (motor_driver.c)
@@ -89,11 +91,13 @@ void motor_set_deadzone(uint16_t val);
 void motor_set_initialized(bool val);
 void motor_set_distance_left_mm(float val);
 void motor_set_distance_right_mm(float val);
+void motor_set_speed_left_mm_s(float val);
+void motor_set_speed_right_mm_s(float val);
 void motor_set_sync_count(uint16_t val);
 void motor_add_sync_count(uint16_t n);
 
-/* encoder → travel distance (defined in src/driver/board/motor_driver_uart.c) */
-void motor_update_distance(void);
+/* encoder → travel distance + speed mm/s (defined in src/driver/board/motor_driver_uart.c) */
+void motor_update_derived(void);
 
 #ifdef __cplusplus
 }

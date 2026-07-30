@@ -93,9 +93,9 @@ void vLoggerTask(void *pvParameters)
         (void) imu_get_pitch_deg100();
         (void) imu_get_roll_deg100();
 
-        /* Motor speed + encoder data */
-        float   spdL_mm_s  = 0.0f;   /* TODO: convert speed_left to mm/s */
-        float   spdR_mm_s  = 0.0f;   /* TODO: convert speed_right to mm/s */
+        /* Motor speed + encoder data — read from shadow register */
+        float   spdL_mm_s  = motor_get_speed_left_mm_s();
+        float   spdR_mm_s  = motor_get_speed_right_mm_s();
 
         float dist_left   = motor_get_distance_left_mm();
         float dist_right  = motor_get_distance_right_mm();

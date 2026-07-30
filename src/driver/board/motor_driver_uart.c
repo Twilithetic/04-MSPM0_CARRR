@@ -276,8 +276,8 @@ bool cmd_config_tt_encoder(MotorDriverReg *r)
     const char *resp = motor_send_cmd("$read_vol#", 200);
     if (!resp || !*resp) return false;
 
-    motor_set_motor_type(3);     motor_set_pulse_line(13);
-    motor_set_reduction_ratio(45); motor_set_wheel_diameter(67.0f);
+    motor_set_motor_type(3);     motor_set_pulse_line(500);
+    motor_set_reduction_ratio(30); motor_set_wheel_diameter(67.0f);
     motor_set_deadzone(1250);    motor_set_comm_status(0);
     motor_set_initialized(true);
     return true;
@@ -464,23 +464,44 @@ void motor_print_config(bool ok)
 }
 
 /* ====================================================================
- *  Encoder → travel distance conversion
+ *  Encoder → travel distance + real-time speed conversion
  *
- *  2340 counts per wheel-rev (13 lines × 4 edges × 45 reduction ratio)
- *  Wheel diameter = 67.0mm → circumference = π × 67.0 ≈ 210.5mm
- *  mm_per_count = (π × 67.0) / 60000 ≈ 0.00351
+ *  Uses REAL encoder parameters stored in shadow register:
+ *    counts_per_rev = pulse_line × 4 (quadrature edges) × reduction_ratio
+ *    mm_per_count   = (π × wheel_diameter) / counts_per_rev
+ *
+ *  Speed: encoder_10ms is the delta over 10ms (from $MTEP).
+ *    speed_mm_s = encoder_10ms × mm_per_count × 100
  *
  *  Called by vMotorSyncTask every 10ms after sync_encoder_from_device.
  * ==================================================================== */
 
-#define ENCODER_COUNTS_PER_REV  60000U
-#define MOTOR_WHEEL_DIAMETER_MM 67.0f
-#define MOTOR_MM_PER_COUNT      (3.1415926f * MOTOR_WHEEL_DIAMETER_MM / (float)ENCODER_COUNTS_PER_REV)
-
-void motor_update_distance(void)
+void motor_update_derived(void)
 {
-    float dist_left  = (float)motor_get_encoder_left()   * MOTOR_MM_PER_COUNT;
-    float dist_right = (float)motor_get_encoder_right() * MOTOR_MM_PER_COUNT;
+    float pulse_line       = (float)motor_get_pulse_line();       /* 500 */
+    float reduction_ratio  = (float)motor_get_reduction_ratio();  /* 30 */
+    float wheel_diameter   = motor_get_wheel_diameter();          /* 67.0 */
+
+    /* counts per wheel revolution (real encoder, not board-config) */
+    float counts_per_rev   = pulse_line * 4.0f * reduction_ratio;
+    float wheel_circ_mm    = 3.1415926f * wheel_diameter;
+    float mm_per_count     = wheel_circ_mm / counts_per_rev;
+
+    /* ---- travel distance from accumulated encoder total ---- */
+    float dist_left  = (float)motor_get_encoder_left()  * mm_per_count;
+    float dist_right = (float)motor_get_encoder_right() * mm_per_count;
     motor_set_distance_left_mm(dist_left);
     motor_set_distance_right_mm(dist_right);
+
+    /* ---- real-time speed from 10ms encoder delta ---- */
+    float spd_left  = (float)motor_get_encoder_10ms_left()  * mm_per_count * 100.0f;
+    float spd_right = (float)motor_get_encoder_10ms_right() * mm_per_count * 100.0f;
+    motor_set_speed_left_mm_s(spd_left);
+    motor_set_speed_right_mm_s(spd_right);
+}
+
+/* Backward-compat wrapper */
+void motor_update_distance(void)
+{
+    motor_update_derived();
 }

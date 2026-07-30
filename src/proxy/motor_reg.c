@@ -43,6 +43,10 @@ struct MotorDriverReg {
     volatile float    distance_left_mm;     // travel distance (mm), left wheel
     volatile float    distance_right_mm;    // travel distance (mm), right wheel
 
+    /* derived: encoder 10ms delta → speed mm/s (computed in vMotorSyncTask) */
+    volatile float    speed_left_mm_s;      // real-time speed (mm/s), left wheel
+    volatile float    speed_right_mm_s;     // real-time speed (mm/s), right wheel
+
     /* sync statistics (qps-style) */
     volatile uint16_t sync_count;         // total frame count since init
     volatile uint32_t last_sync_tick;     // FreeRTOS tick of last rate snap
@@ -92,6 +96,16 @@ float motor_get_distance_right_mm(void)
     return g_motor_driver_reg.distance_right_mm;
 }
 
+float motor_get_speed_left_mm_s(void)
+{
+    return g_motor_driver_reg.speed_left_mm_s;
+}
+
+float motor_get_speed_right_mm_s(void)
+{
+    return g_motor_driver_reg.speed_right_mm_s;
+}
+
 /* ── Write access (Proxy only) ── */
 
 void motor_set_encoder_left(int32_t val)    { g_motor_driver_reg.encoder_total_left = val; }
@@ -111,6 +125,9 @@ void motor_set_initialized(bool val)          { g_motor_driver_reg.initialized =
 
 void motor_set_distance_left_mm(float val)    { g_motor_driver_reg.distance_left_mm = val; }
 void motor_set_distance_right_mm(float val)   { g_motor_driver_reg.distance_right_mm = val; }
+
+void motor_set_speed_left_mm_s(float val)     { g_motor_driver_reg.speed_left_mm_s = val; }
+void motor_set_speed_right_mm_s(float val)    { g_motor_driver_reg.speed_right_mm_s = val; }
 
 void motor_set_sync_count(uint16_t val)       { g_motor_driver_reg.sync_count = val; }
 void motor_add_sync_count(uint16_t n)         { g_motor_driver_reg.sync_count += n; }
