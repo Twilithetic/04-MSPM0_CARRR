@@ -13,6 +13,7 @@
 #include "include/XDS110_cdc.h"
 #include "include/imu_shadow.h"
 #include "include/motor_driver_uart.h"
+#include "include/line8_reg.h"
 
 extern void i2c_scan_print_results(void);
 
@@ -105,10 +106,17 @@ void vLoggerTask(void *pvParameters)
         int16_t enc10ms_left  = motor_get_encoder_10ms_left();
         int16_t enc10ms_right = motor_get_encoder_10ms_right();
 
+        /* Line8 sensor data — read from shadow register */
+        int16_t  line_pos   = line8_get_position();
+        int16_t  line_err   = line8_get_error();
+        uint8_t  line_mask  = line8_get_mask();
+        uint8_t  line_cnt   = line8_get_active_count();
+
         int n = snprintf(buf, sizeof(buf),
                          "[%lu.%03lus] B:%lu G:%lu | qps:%-3u msync:%-3u | yaw:%7.2f° | "
                          "spd L:%5.0f R:%5.0f mm/s | "
-                         "10ms L:%+5d R:%+5d | dist L:%.1f R:%.1f mm | enc L:%ld R:%ld\r\n",
+                         "10ms L:%+5d R:%+5d | dist L:%.1f R:%.1f mm | enc L:%ld R:%ld | "
+                         "line pos:%4d err:%+4d cnt:%u mask:0x%02X\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
@@ -118,7 +126,10 @@ void vLoggerTask(void *pvParameters)
                          (double) spdL_mm_s, (double) spdR_mm_s,
                          (int) enc10ms_left, (int) enc10ms_right,
                          (double) dist_left, (double) dist_right,
-                         (long) enc_total_left, (long) enc_total_right);
+                         (long) enc_total_left, (long) enc_total_right,
+                         (int) line_pos, (int) line_err,
+                         (unsigned int) line_cnt,
+                         (unsigned int) line_mask);
 
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);

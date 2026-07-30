@@ -1,9 +1,9 @@
 /*
  *  ======== line8_driver_uart.c ========
- *  8-Channel IR Line Sensor Proxy — UART2 command/response.
+ *  8-Channel IR Line Sensor Proxy — UART3 command/response.
  *
  *  Hardware:
- *    UART2: PA25 TX, PA26 RX @ 9600 8N1
+ *    UART3: PA26 TX, PA25 RX @ 9600 8N1
  *
  *  Implementation: pure DriverLib + FreeRTOS queue (matching
  *  motor_driver_uart.c pattern).
@@ -41,19 +41,19 @@
 #include <stdio.h>
 
 /* ====================================================================
- *  UART2 hardware — PA25 TX / PA26 RX @ 9600 8N1
+ *  UART3 hardware — PA26 TX / PA25 RX @ 9600 8N1
  *
- *  PA25 = PINCM50, PA26 = PINCM51
- *  UART2 IOMUX functions:
- *    PINCM50_PF_UART2_TX  (PA25 → TX)
- *    PINCM51_PF_UART2_RX  (PA26 → RX)
+ *  PA26 = IOMUX_PINCM59, PA25 = IOMUX_PINCM55
+ *  UART3 IOMUX functions:
+ *    IOMUX_PINCM59_PF_UART3_TX  (PA26 → TX)
+ *    IOMUX_PINCM55_PF_UART3_RX  (PA25 → RX)
  * ==================================================================== */
 
-#define LINE8_UART_INST          UART2
-#define LINE8_UART_IOMUX_RX      (IOMUX_PINCM51)
-#define LINE8_UART_IOMUX_RX_FUNC IOMUX_PINCM51_PF_UART2_RX
-#define LINE8_UART_IOMUX_TX      (IOMUX_PINCM50)
-#define LINE8_UART_IOMUX_TX_FUNC IOMUX_PINCM50_PF_UART2_TX
+#define LINE8_UART_INST          UART3
+#define LINE8_UART_IOMUX_RX      (IOMUX_PINCM55)
+#define LINE8_UART_IOMUX_RX_FUNC IOMUX_PINCM55_PF_UART3_RX
+#define LINE8_UART_IOMUX_TX      (IOMUX_PINCM59)
+#define LINE8_UART_IOMUX_TX_FUNC IOMUX_PINCM59_PF_UART3_TX
 
 /* ====================================================================
  *  RX — interrupt-driven byte queue
@@ -62,7 +62,7 @@
 #define RX_QUEUE_SIZE  256
 static QueueHandle_t g_line8_rx_queue = NULL;
 
-void UART2_IRQHandler(void)
+void UART3_IRQHandler(void)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
@@ -79,7 +79,7 @@ void UART2_IRQHandler(void)
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
-/* ---- Init UART2 (pure DriverLib) ---- */
+/* ---- Init UART3 (pure DriverLib, matching motor_driver_uart.c pattern) ---- */
 
 static bool g_line8_uart_ready = false;
 
@@ -118,7 +118,6 @@ static bool line8_uart_init(void)
 
     /* Baud: 9600 @ 32MHz */
     DL_UART_Main_setOversampling(LINE8_UART_INST, DL_UART_OVERSAMPLING_RATE_16X);
-    /* 32MHz / (16 * 9600) = 208.333 → IBRD=208, FBRD≈0.333*64=21 */
     DL_UART_Main_setBaudRateDivisor(LINE8_UART_INST, 208, 21);
 
     /* FIFOs */
@@ -128,7 +127,7 @@ static bool line8_uart_init(void)
 
     /* RX interrupt */
     DL_UART_Main_enableInterrupt(LINE8_UART_INST, DL_UART_INTERRUPT_RX);
-    NVIC_EnableIRQ(UART2_INT_IRQn);
+    NVIC_EnableIRQ(UART3_INT_IRQn);
 
     /* Go */
     DL_UART_Main_enable(LINE8_UART_INST);
@@ -365,7 +364,7 @@ void line8_set_analog_mode(void)
 }
 
 /* ====================================================================
- *  SYNC: read UART2 → parse frame → write shadow register
+ *  SYNC: read UART3 → parse frame → write shadow register
  *
  *  Called periodically (e.g. @ 100 Hz) from line sync task.
  *  Each call drains any pending frames from the RX queue.
@@ -381,7 +380,7 @@ void sync_line8_from_device(Line8Reg *r)
     /* Drain up to 5 frames per call (safety cap, sensor sends at most ~1/10ms) */
     int i;
     for (i = 0; i < 5; i++) {
-        const char *resp = line8_uart_recv_frame(1);  /* 1 tick timeout */
+        const char *resp = line8_uart_recv_frame(pdMS_TO_TICKS(15));  /* timeout: 1.5× frame period */
         if (!resp || !*resp) break;
 
         if (resp[0] == 'D') {
