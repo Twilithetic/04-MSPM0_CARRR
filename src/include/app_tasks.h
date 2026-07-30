@@ -26,4 +26,10 @@ void vCarCtrlTask(void *pvParameters);
 void vStatsTask(void *pvParameters);
 void vLine8SyncTask(void *pvParameters);
 
+/* ── Controller state (read by logger) ── */
+extern float g_ctrl_speed_left;
+extern float g_ctrl_speed_right;
+extern float g_ctrl_err_left;
+extern float g_ctrl_err_right;
+
 #endif /* APP_TASKS_H */

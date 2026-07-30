@@ -36,6 +36,12 @@
 /* ---- Semaphores ---- */
 extern SemaphoreHandle_t g_ctrlSyncSem;
 
+/* ---- Controller state (read by logger) ---- */
+float g_ctrl_speed_left  = 0.0f;
+float g_ctrl_speed_right = 0.0f;
+float g_ctrl_err_left    = 0.0f;
+float g_ctrl_err_right   = 0.0f;
+
 /* ---- Line-follow setpoint & limits ---- */
 #define LF_SIDE_TARGET  0.0f   /* white-val per side when line centered */
 #define LF_BASE_SPEED   500.0f  /* mm/s cruise speed                     */
@@ -97,18 +103,18 @@ void vCarCtrlTask(void *pvParameters)
     LinePid pid_right = {0};
 
     for (;;) {
-        /* Read side-encoded white values from the shadow register */
-        float err_left  = LF_SIDE_TARGET - (float) line8_get_left_white_val();
-        float err_right = LF_SIDE_TARGET - (float) line8_get_right_white_val();
+        // /* Read side-encoded white values from the shadow register */
+        // g_ctrl_err_left  = LF_SIDE_TARGET - (float) line8_get_left_white_val();
+        // g_ctrl_err_right = LF_SIDE_TARGET - (float) line8_get_right_white_val();
 
-        /* Two independent PIDs — one per wheel */
-        float speed_left  = LF_BASE_SPEED
-                           - line_pid_run(&pid_left,  err_left,  LF_L_KP, LF_L_KI, LF_L_KD);
-        float speed_right = LF_BASE_SPEED
-                           - line_pid_run(&pid_right, err_right, LF_R_KP, LF_R_KI, LF_R_KD);
+        // /* Two independent PIDs — one per wheel */
+        // g_ctrl_speed_left  = LF_BASE_SPEED
+        //                    - line_pid_run(&pid_left,  g_ctrl_err_left,  LF_L_KP, LF_L_KI, LF_L_KD);
+        // g_ctrl_speed_right = LF_BASE_SPEED
+        //                    - line_pid_run(&pid_right, g_ctrl_err_right, LF_R_KP, LF_R_KI, LF_R_KD);
 
-        motor_send_speed_mm_s(clamp_speed(speed_left), clamp_speed(speed_right));
-
+        // motor_send_speed_mm_s(clamp_speed(g_ctrl_speed_left) / 3, clamp_speed(g_ctrl_speed_right) / 3);
+        motor_send_speed_mm_s(500,500);
         vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
     }
 }

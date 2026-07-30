@@ -96,7 +96,7 @@ void vMotorSyncTask(void *pvParameters)
         /* convert encoder → travel distance (mm) + speed (mm/s) */
         motor_update_derived();
 
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10));
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
     }
 }
 

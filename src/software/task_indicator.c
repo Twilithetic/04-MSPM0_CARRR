@@ -114,11 +114,18 @@ void vLoggerTask(void *pvParameters)
         uint8_t  lw_val     = line8_get_left_white_val();
         uint8_t  rw_val     = line8_get_right_white_val();
 
+        /* Controller state */
+        float ctrl_spdL = g_ctrl_speed_left;
+        float ctrl_spdR = g_ctrl_speed_right;
+        float ctrl_errL = g_ctrl_err_left;
+        float ctrl_errR = g_ctrl_err_right;
+
         int n = snprintf(buf, sizeof(buf),
                          "[%lu.%03lus] B:%lu G:%lu | qps:%-3u msync:%-3u | yaw:%7.2f° | "
                          "spd L:%5.0f R:%5.0f mm/s | "
                          "10ms L:%+5d R:%+5d | dist L:%.1f R:%.1f mm | enc L:%ld R:%ld | "
-                         "line pos:%4d err:%+4d cnt:%u mask:0x%02X | lw:%u rw:%u\r\n",
+                         "line pos:%4d err:%+4d cnt:%u mask:0x%02X | lw:%u rw:%u | "
+                         "ctrl spd L:%.0f R:%.0f err L:%+.0f R:%+.0f\r\n",
                          secs, ms,
                          (unsigned long) led_get_blue(),
                          (unsigned long) led_get_green(),
@@ -133,7 +140,9 @@ void vLoggerTask(void *pvParameters)
                          (unsigned int) line_cnt,
                          (unsigned int) line_mask,
                          (unsigned int) lw_val,
-                         (unsigned int) rw_val);
+                         (unsigned int) rw_val,
+                         (double) ctrl_spdL, (double) ctrl_spdR,
+                         (double) ctrl_errL, (double) ctrl_errR);
 
         if (n > 0 && (size_t) n < sizeof(buf)) {
             uart_send_async((const uint8_t *) buf, (size_t) n, 0);
